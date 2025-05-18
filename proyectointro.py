@@ -2,73 +2,90 @@ import streamlit as st
 import datetime
 import requests
 import xml.etree.ElementTree as ET
+import textwrap
 
-st.set_page_config(page_title="Asistente de Tesis Automático", layout="wide")
-st.title("🤖 Generador Automático de Introducción de Proyecto de Tesis")
+st.set_page_config(page_title="Generador de Introducción de Tesis", layout="wide")
+st.title("📘 Generador de Introducción de Proyecto de Tesis")
 
 st.markdown("""
-Esta aplicación web genera automáticamente la sección de **Introducción** de un proyecto de tesis a partir de un **título** o **objetivo general** proporcionado por el usuario. La redacción se realiza en **prosa**, en **tercera persona** y en **tiempo futuro del modo indicativo**, siguiendo una estructura académica rigurosa.
+Esta aplicación te ayudará a generar automáticamente la sección de **Introducción** de tu tesis, con una estructura académica completa y organizada a partir de un **título** u **objetivo general**. Los textos se redactan en **prosa**, en **tercera persona**, en **tiempo futuro del modo indicativo**, con párrafos de máximo 10 líneas, y con una extensión aproximada a **9 páginas A4**.
 """)
 
 # Entradas del usuario
-titulo = st.text_input("🎓 Ingresa el título del proyecto de tesis (opcional)")
-objetivo_general = st.text_area("🎯 Ingresa el objetivo general de la investigación")
+titulo = st.text_input("🎓 Título del proyecto de tesis")
+objetivo_general = st.text_area("🎯 Objetivo general de la investigación")
 consulta_pubmed = st.text_input("🔎 Palabra clave para búsqueda de antecedentes en PubMed")
 
-# Buscar artículos recientes en PubMed
+# Función para parafrasear abstract
 @st.cache_data
-def buscar_antecedentes_pubmed(termino):
-    fecha_actual = datetime.date.today()
-    anio_actual = fecha_actual.year
-    anio_inicio = anio_actual - 5
+def obtener_antecedentes(termino):
+    anio_inicio = datetime.date.today().year - 5
     url_search = (
         f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?"
-        f"db=pubmed&term={termino}&retmax=5&retmode=json&mindate={anio_inicio}&datetype=pdat"
+        f"db=pubmed&term={termino}&retmax=10&retmode=json&mindate={anio_inicio}&datetype=pdat"
     )
-    r = requests.get(url_search)
-    if r.status_code != 200:
-        return []
-    ids = r.json().get("esearchresult", {}).get("idlist", [])
+    ids = requests.get(url_search).json().get("esearchresult", {}).get("idlist", [])
     if not ids:
         return []
+
     url_fetch = (
         f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?"
         f"db=pubmed&id={','.join(ids)}&retmode=xml"
     )
-    r = requests.get(url_fetch)
-    root = ET.fromstring(r.content)
-    abstracts = []
+    root = ET.fromstring(requests.get(url_fetch).content)
+    antecedentes = []
+
     for article in root.findall(".//PubmedArticle"):
-        title = article.findtext(".//ArticleTitle", default="Título no disponible")
+        title = article.findtext(".//ArticleTitle", default="")
         abstract_elem = article.find(".//Abstract/AbstractText")
-        abstract = abstract_elem.text if abstract_elem is not None else "Resumen no disponible"
-        abstracts.append(f"**{title}**: {abstract}")
-    return abstracts
+        abstract = abstract_elem.text if abstract_elem is not None else ""
+        author = article.findtext(".//Author/LastName", default="Autor")
+        initial = article.findtext(".//Author/Initials", default="N")
+        year = article.findtext(".//PubDate/Year") or article.findtext(".//DateCreated/Year") or "s.f."
+        resumen = textwrap.shorten(abstract.replace("\n", " ").strip(), width=850, placeholder="...")
+        if resumen:
+            antecedentes.append(f"{author}, {initial}. et al. ({year}) señala que {resumen.lower()}")
+    return antecedentes
 
-if st.button("📝 Generar Introducción"):
+# Botón para generar la introducción
+generar = st.button("📝 Generar Introducción")
+
+if generar:
     st.subheader("🧾 Introducción Generada")
-    st.markdown(f"A partir del análisis del objetivo general '{objetivo_general}', se desarrollará una investigación que abordará una problemática actual de relevancia científica y social.")
+    st.markdown(f"**Título del proyecto:** {titulo}")
+    
+    st.markdown("**Realidad problemática e importancia del tema**")
+    st.markdown("El presente estudio abordará una problemática relevante en el contexto actual, cuya importancia se fundamentará en la necesidad de generar evidencia científica sobre un fenómeno con implicancias en la salud pública, el bienestar social o el desarrollo económico. La pregunta de investigación será formulada considerando la plausibilidad científica, el vacío empírico existente y el interés académico sobre el tema.")
 
-    st.markdown("En primer lugar, se expondrá de manera general la realidad problemática. Se describirá su impacto en términos de frecuencia y morbimortalidad asociada, considerando datos relevantes a nivel mundial, regional (América Latina) y nacional (Perú).")
+    st.markdown("**Impacto del problema en cifras**")
+    st.markdown("Este fenómeno presentará un impacto significativo en términos de frecuencia, carga de enfermedad y morbimortalidad. A nivel global, se observarán tendencias que justifican su estudio. En América Latina y particularmente en el Perú, los indicadores revelarán un crecimiento sostenido del problema, acompañado de brechas en acceso a servicios, políticas de intervención o respuesta institucional.")
 
-    st.markdown("A continuación, se presentarán antecedentes científicos obtenidos de estudios primarios recientes, preferentemente publicados en PubMed durante los últimos cinco años. Estos hallazgos sustentarán la plausibilidad científica del problema abordado.")
+    st.markdown("**Vacíos en la literatura científica**")
+    st.markdown("Los estudios previos disponibles presentarán limitaciones metodológicas, cobertura geográfica restringida o ausencia de enfoques integrales. Se identificará una necesidad crítica de investigaciones que ofrezcan datos contextualizados, robustos y replicables, con el fin de aportar soluciones basadas en evidencia.")
 
-    antecedentes = buscar_antecedentes_pubmed(consulta_pubmed)
+    st.markdown("**Vinculación con los ODS**")
+    st.markdown("La presente investigación contribuirá directamente al logro de uno o más Objetivos de Desarrollo Sostenible (ODS), promoviendo el cumplimiento de metas asociadas a la salud, equidad, educación de calidad, innovación, sostenibilidad o reducción de desigualdades.")
+
+    st.markdown("**Pregunta de investigación**")
+    st.markdown("¿Cuál será la relación, influencia o efecto de las variables identificadas dentro del contexto de estudio propuesto?")
+
+    st.markdown("**Justificación del estudio**")
+    st.markdown("- **Teórica:** Permitirá profundizar en modelos conceptuales existentes y enriquecer el marco teórico del fenómeno.")
+    st.markdown("- **Práctica:** Generará insumos aplicables para la mejora de intervenciones, servicios o programas.")
+    st.markdown("- **Metodológica:** Introducirá enfoques innovadores, herramientas o estrategias analíticas que enriquecerán futuras investigaciones.")
+    st.markdown("- **Social:** Tendrá un impacto potencial sobre la calidad de vida de la población beneficiaria o el entorno social involucrado.")
+
+    st.subheader("📚 Antecedentes (PubMed, últimos 5 años)")
+    antecedentes = obtener_antecedentes(consulta_pubmed)
     if antecedentes:
-        st.markdown("**Antecedentes relevantes:**")
-        for a in antecedentes:
-            st.markdown(f"- {a}")
+        for ant in antecedentes:
+            st.markdown(f"- {ant}")
     else:
-        st.warning("No se encontraron antecedentes recientes con esa palabra clave.")
+        st.warning("No se encontraron antecedentes relevantes en PubMed para esa búsqueda.")
 
-    st.markdown("Posteriormente, se identificarán vacíos en la literatura existente, como la escasez de investigaciones pertinentes, estudios limitados a contextos no generalizables o deficiencias metodológicas.")
+    st.subheader("🧠 Bases teóricas y enfoques conceptuales")
+    st.markdown("Se adoptarán teorías relevantes para comprender la dinámica de las variables involucradas en el fenómeno investigado. Los enfoques conceptuales servirán como marco interpretativo para guiar la operacionalización de conceptos clave, categorías analíticas y relaciones hipotéticas.")
 
-    st.markdown("El problema de investigación se formulará en modo interrogativo, considerando la relación directa con los objetivos propuestos y el marco conceptual de la investigación.")
-
-    st.markdown("La justificación del estudio se estructurará en cuatro dimensiones: teórica, práctica, metodológica y social, lo que permitirá sustentar la relevancia y viabilidad del estudio.")
-
-    st.markdown("Asimismo, se discutirá la utilidad potencial de responder a la pregunta de investigación, subrayando la importancia del tema en el contexto académico y su contribución a los Objetivos de Desarrollo Sostenible (ODS).")
-
-    st.markdown(f"Se definirá formalmente el siguiente objetivo general: {objetivo_general}. Además, se derivarán objetivos específicos que orientarán el desarrollo metodológico del estudio.")
-
-    st.markdown("Finalmente, se desarrollará un análisis teórico-conceptual que incluirá las principales teorías relacionadas con la problemática abordada, así como los enfoques conceptuales vinculados a las variables o categorías en estudio. También se indicará de qué manera este análisis contribuirá a superar las limitaciones identificadas en la literatura.")
+    st.subheader("🔬 Hipótesis de investigación")
+    st.markdown(f"- **Hipótesis de investigación:** Se planteará que el objetivo general propuesto (\"{objetivo_general}\") tendrá una relación significativa con las variables de estudio, bajo condiciones previamente establecidas.")
+    st.markdown("- **Hipótesis estadísticas:** Se formularán contrastes de hipótesis nula (H0) y alternativa (H1) según el diseño metodológico, nivel de medición y tipo de análisis previsto.")
