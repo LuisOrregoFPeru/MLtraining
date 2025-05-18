@@ -3,6 +3,8 @@ import datetime
 import requests
 import xml.etree.ElementTree as ET
 import textwrap
+import openai
+import os
 
 st.set_page_config(page_title="Generador de Introducción de Tesis", layout="wide")
 st.title("📘 Generador de Introducción de Proyecto de Tesis")
@@ -15,6 +17,35 @@ Esta aplicación te ayudará a generar automáticamente la sección de **Introdu
 titulo = st.text_input("🎓 Título del proyecto de tesis")
 objetivo_general = st.text_area("🎯 Objetivo general de la investigación")
 consulta_pubmed = st.text_input("🔎 Palabra clave para búsqueda de antecedentes en PubMed")
+
+# Configurar clave de API de OpenAI
+openai.api_key = st.secrets["OPENAI_API_KEY"] if "OPENAI_API_KEY" in st.secrets else os.getenv("OPENAI_API_KEY")
+
+# Función para generar texto con ChatGPT
+def generar_introduccion_con_gpt(titulo, objetivo):
+    prompt = f"""
+Redacta en prosa, sin subtítulos, en tercera persona y tiempo futuro del modo indicativo, una introducción para un proyecto de tesis titulado: "{titulo}". 
+Incluye los siguientes elementos:
+
+1. La importancia del tema a investigar y la plausibilidad de la pregunta.
+2. El impacto del problema: frecuencia, morbimortalidad a nivel mundial, América Latina y Perú.
+3. Los vacíos en la literatura: falta de estudios, deficiencias metodológicas, contextos no generalizables.
+4. Vinculación con al menos un Objetivo de Desarrollo Sostenible (ODS).
+5. Formulación del problema en modo interrogativo.
+6. Justificación teórica, práctica, metodológica y social.
+7. Mención al objetivo general: "{objetivo}".
+8. Redacción en párrafos de máximo 10 líneas cada uno.
+
+Extensión aproximada: 1200 palabras.
+"""
+
+    respuesta = openai.ChatCompletion.create(
+        model="gpt-4",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.7,
+        max_tokens=2000
+    )
+    return respuesta.choices[0].message["content"]
 
 # Función para parafrasear abstract
 @st.cache_data
@@ -51,41 +82,25 @@ def obtener_antecedentes(termino):
 generar = st.button("📝 Generar Introducción")
 
 if generar:
-    st.subheader("🧾 Introducción Generada")
-    st.markdown(f"**Título del proyecto:** {titulo}")
-    
-    st.markdown("**Realidad problemática e importancia del tema**")
-    st.markdown("El presente estudio abordará una problemática relevante en el contexto actual, cuya importancia se fundamentará en la necesidad de generar evidencia científica sobre un fenómeno con implicancias en la salud pública, el bienestar social o el desarrollo económico. La pregunta de investigación será formulada considerando la plausibilidad científica, el vacío empírico existente y el interés académico sobre el tema.")
-
-    st.markdown("**Impacto del problema en cifras**")
-    st.markdown("Este fenómeno presentará un impacto significativo en términos de frecuencia, carga de enfermedad y morbimortalidad. A nivel global, se observarán tendencias que justifican su estudio. En América Latina y particularmente en el Perú, los indicadores revelarán un crecimiento sostenido del problema, acompañado de brechas en acceso a servicios, políticas de intervención o respuesta institucional.")
-
-    st.markdown("**Vacíos en la literatura científica**")
-    st.markdown("Los estudios previos disponibles presentarán limitaciones metodológicas, cobertura geográfica restringida o ausencia de enfoques integrales. Se identificará una necesidad crítica de investigaciones que ofrezcan datos contextualizados, robustos y replicables, con el fin de aportar soluciones basadas en evidencia.")
-
-    st.markdown("**Vinculación con los ODS**")
-    st.markdown("La presente investigación contribuirá directamente al logro de uno o más Objetivos de Desarrollo Sostenible (ODS), promoviendo el cumplimiento de metas asociadas a la salud, equidad, educación de calidad, innovación, sostenibilidad o reducción de desigualdades.")
-
-    st.markdown("**Pregunta de investigación**")
-    st.markdown("¿Cuál será la relación, influencia o efecto de las variables identificadas dentro del contexto de estudio propuesto?")
-
-    st.markdown("**Justificación del estudio**")
-    st.markdown("- **Teórica:** Permitirá profundizar en modelos conceptuales existentes y enriquecer el marco teórico del fenómeno.")
-    st.markdown("- **Práctica:** Generará insumos aplicables para la mejora de intervenciones, servicios o programas.")
-    st.markdown("- **Metodológica:** Introducirá enfoques innovadores, herramientas o estrategias analíticas que enriquecerán futuras investigaciones.")
-    st.markdown("- **Social:** Tendrá un impacto potencial sobre la calidad de vida de la población beneficiaria o el entorno social involucrado.")
-
-    st.subheader("📚 Antecedentes (PubMed, últimos 5 años)")
-    antecedentes = obtener_antecedentes(consulta_pubmed)
-    if antecedentes:
-        for ant in antecedentes:
-            st.markdown(f"- {ant}")
+    if not titulo or not objetivo_general:
+        st.warning("Por favor completa el título y el objetivo general antes de generar la introducción.")
     else:
-        st.warning("No se encontraron antecedentes relevantes en PubMed para esa búsqueda.")
+        with st.spinner("✍️ Generando introducción con ChatGPT..."):
+            introduccion = generar_introduccion_con_gpt(titulo, objetivo_general)
+            st.subheader("🧾 Introducción Generada")
+            st.markdown(introduccion)
 
-    st.subheader("🧠 Bases teóricas y enfoques conceptuales")
-    st.markdown("Se adoptarán teorías relevantes para comprender la dinámica de las variables involucradas en el fenómeno investigado. Los enfoques conceptuales servirán como marco interpretativo para guiar la operacionalización de conceptos clave, categorías analíticas y relaciones hipotéticas.")
+        st.subheader("📚 Antecedentes (PubMed, últimos 5 años)")
+        antecedentes = obtener_antecedentes(consulta_pubmed)
+        if antecedentes:
+            for ant in antecedentes:
+                st.markdown(f"- {ant}")
+        else:
+            st.warning("No se encontraron antecedentes relevantes en PubMed para esa búsqueda.")
 
-    st.subheader("🔬 Hipótesis de investigación")
-    st.markdown(f"- **Hipótesis de investigación:** Se planteará que el objetivo general propuesto (\"{objetivo_general}\") tendrá una relación significativa con las variables de estudio, bajo condiciones previamente establecidas.")
-    st.markdown("- **Hipótesis estadísticas:** Se formularán contrastes de hipótesis nula (H0) y alternativa (H1) según el diseño metodológico, nivel de medición y tipo de análisis previsto.")
+        st.subheader("🧠 Bases teóricas y enfoques conceptuales")
+        st.markdown("Se adoptarán teorías relevantes para comprender la dinámica de las variables involucradas en el fenómeno investigado. Los enfoques conceptuales servirán como marco interpretativo para guiar la operacionalización de conceptos clave, categorías analíticas y relaciones hipotéticas.")
+
+        st.subheader("🔬 Hipótesis de investigación")
+        st.markdown(f"- **Hipótesis de investigación:** Se planteará que el objetivo general propuesto (\"{objetivo_general}\") tendrá una relación significativa con las variables de estudio, bajo condiciones previamente establecidas.")
+        st.markdown("- **Hipótesis estadísticas:** Se formularán contrastes de hipótesis nula (H0) y alternativa (H1) según el diseño metodológico, nivel de medición y tipo de análisis previsto.")
