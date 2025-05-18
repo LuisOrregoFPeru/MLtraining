@@ -1,137 +1,161 @@
+# ==============================================================================
+#  Streamlit Tesis App  ·  Requiere la librería  openai
+# ------------------------------------------------------------------------------
+#  requirements.txt (mínimo):
+#      streamlit
+#      openai>=1.3.0
+#      requests
+# ------------------------------------------------------------------------------
+#  Instalar localmente:
+#      pip install streamlit openai requests
+# ==============================================================================
+
 import streamlit as st
 import datetime
-import requests
-import xml.etree.ElementTree as ET
 import textwrap
+import xml.etree.ElementTree as ET
+import requests
 import os
-
-# ────────────────────────────────────────────────────────────────────────────────
-# Intentamos importar openai; si no está, mostramos un mensaje claro y detenemos
-# la app. En Streamlit Cloud basta con añadir "openai" a requirements.txt.
-# ────────────────────────────────────────────────────────────────────────────────
-try:
-    import openai
-except ModuleNotFoundError:
-    st.error(
-        "❌ El paquete `openai` no está instalado.\n\n"
-        "Agrega una línea `openai` (sin comillas) en tu `requirements.txt` y vuelve a desplegar."
-    )
-    st.stop()
+import openai
 
 # Configuración de página
-st.set_page_config(page_title="Generador de Introducción de Tesis", layout="wide")
-st.title("📘 Generador de Introducción de Proyecto de Tesis")
+st.set_page_config(page_title="Asistente de Tesis", layout="wide")
+st.title("📘 Asistente Automático para Introducciones de Tesis")
 
 st.markdown(
     """
-Esta aplicación genera automáticamente la **Introducción** de una tesis a partir de un título u objetivo general, 
-utilizando la API de ChatGPT, antecedentes de PubMed y una estructura académica prediseñada.
+Genera automáticamente la **Introducción** (≥ 9 páginas A4) de un proyecto de tesis a partir de un título u objetivo general. 
+Redacción en **prosa**, **tercera persona**, **tiempo futuro del indicativo**, párrafos ≤ 10 líneas.  Incluye antecedentes parafraseados desde PubMed, bases teóricas, enfoques conceptuales e hipótesis.
 """
 )
 
-# Entradas del usuario
+# ──────────────────────────────────────────────────────────────
+# Entradas de usuario
+# ──────────────────────────────────────────────────────────────
+
 titulo = st.text_input("🎓 Título del proyecto de tesis")
 objetivo_general = st.text_area("🎯 Objetivo general de la investigación")
-consulta_pubmed = st.text_input("🔎 Palabra clave para búsqueda de antecedentes en PubMed")
+keyword_pubmed = st.text_input("🔎 Palabra clave para antecedentes (PubMed)")
+num_articulos = st.slider("# de artículos PubMed", 5, 10, 10)
 
-# Configurar clave de API
-openai.api_key = (
-    st.secrets.get("OPENAI_API_KEY")
-    or os.getenv("OPENAI_API_KEY")
-)
-
+# Clave OpenAI
+openai.api_key = st.secrets.get("OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY")
 if not openai.api_key:
-    st.warning(
-        "⚠️ No se ha encontrado `OPENAI_API_KEY`. Añádela en `.streamlit/secrets.toml` "
-        "o en *Settings → Secrets* de Streamlit Cloud."
-    )
+    st.error("⚠️ Falta la variable `OPENAI_API_KEY`. Agrégala en `.streamlit/secrets.toml` o Settings → Secrets.")
+    st.stop()
 
-# Función para crear introducción con ChatGPT
-def generar_introduccion(titulo: str, objetivo: str) -> str:
-    prompt = f"""Redacta en prosa, sin subtítulos, en tercera persona y tiempo futuro del modo indicativo, \
-una introducción de tesis titulada \"{titulo}\". Incorpora: importancia, plausibilidad, impacto global/LatAm/Perú, vacíos, ODS,\nproblema interrogativo, justificaciones teórica-práctica-metodológica-social y referencia al objetivo \"{objetivo}\".\nMáximo 10 líneas por párrafo. Extensión ≈ 1200 palabras."""
-    respuesta = openai.ChatCompletion.create(
+# ──────────────────────────────────────────────────────────────
+# Funciones auxiliares
+# ──────────────────────────────────────────────────────────────
+
+def chat_gpt(prompt: str, max_tokens: int = 1500, temperature: float = 0.7) -> str:
+    """Envia un prompt a ChatGPT y devuelve el texto generado"""
+    r = openai.ChatCompletion.create(
         model="gpt-4o-mini",
         messages=[{"role": "user", "content": prompt}],
-        temperature=0.7,
-        max_tokens=2000,
+        max_tokens=max_tokens,
+        temperature=temperature,
     )
-    return respuesta.choices[0].message.content
+    return r.choices[0].message.content.strip()
 
-# Función para extraer y parafrasear antecedentes
-def obtener_antecedentes(termino: str):
+
+def generar_introduccion(titulo: str, objetivo: str) -> str:
+    prompt = f"""
+Redacta la introducción de una tesis titulada \"{titulo}\" en prosa, tercera persona y tiempo futuro del indicativo.
+Estructura solicitada:
+1. 1–2 párrafos: realidad problemática (importancia y plausibilidad).
+2. 1–2 párrafos: impacto (frecuencia y morbimortalidad global, Latinoamérica y Perú).
+3. 1–2 párrafos: vacíos en la literatura.
+4. 1 párrafo: vínculo con el ODS correspondiente.
+5. 1 párrafo: pregunta de investigación en modo interrogativo.
+6. 1 párrafo: justificación teórica.
+7. 1 párrafo: justificación práctica.
+8. 1 párrafo: justificación metodológica.
+9. 1 párrafo: justificación social.
+Cada párrafo ≤10 líneas. Longitud total ≈9 páginas A4 (4500-5000 palabras). Debe mencionar el objetivo general: \"{objetivo}\".
+Devuelve solo el texto final, sin títulos ni enumeraciones.
+"""
+    return chat_gpt(prompt, max_tokens=3900)
+
+
+def buscar_articulos_pubmed(query: str, n: int):
     anio_inicio = datetime.date.today().year - 5
-    url_search = (
+    url = (
         "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?"
-        f"db=pubmed&term={termino}&retmax=10&retmode=json&mindate={anio_inicio}&datetype=pdat"
+        f"db=pubmed&term={query}&retmax={n}&retmode=json&mindate={anio_inicio}&datetype=pdat"
     )
-    ids = requests.get(url_search).json().get("esearchresult", {}).get("idlist", [])
+    ids = requests.get(url).json().get("esearchresult", {}).get("idlist", [])
     if not ids:
         return []
-
     url_fetch = (
         "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?"
         f"db=pubmed&id={','.join(ids)}&retmode=xml"
     )
     root = ET.fromstring(requests.get(url_fetch).content)
-    antecedentes = []
-
+    res = []
     for art in root.findall(".//PubmedArticle"):
-        title = art.findtext(".//ArticleTitle", default="")
-        abstract = art.findtext(".//Abstract/AbstractText", default="")
         autor = art.findtext(".//Author/LastName", default="Autor")
         inicial = art.findtext(".//Author/Initials", default="N")
-        year = (
-            art.findtext(".//PubDate/Year")
-            or art.findtext(".//DateCreated/Year")
-            or "s.f."
-        )
-        resumen = textwrap.shorten(
-            abstract.replace("\n", " ").strip(), width=850, placeholder="..."
-        )
-        if resumen:
-            antecedentes.append(
-                f"{autor}, {inicial}. et al. ({year}) señala que {resumen.lower()}"
-            )
-    return antecedentes
+        year = art.findtext(".//PubDate/Year") or art.findtext(".//DateCreated/Year") or "s.f."
+        abstract = art.findtext(".//Abstract/AbstractText", default="")
+        res.append((autor, inicial, year, abstract))
+    return res
 
-# Botón para generar
-generar = st.button("📝 Generar Introducción")
 
-if generar:
+def parafrasear_abstract(autor, inicial, año, abstracto):
+    prompt = (
+        f"Parafrasea el siguiente abstract en ~130 palabras, sin plagio. "
+        f"Inicia el párrafo con '{autor}, {inicial}. et al. ({año})'.\n\n"
+        f"Abstract original:\n{abstracto}"
+    )
+    return chat_gpt(prompt, max_tokens=220, temperature=0.3)
+
+# ──────────────────────────────────────────────────────────────
+# Ejecución de la app
+# ──────────────────────────────────────────────────────────────
+
+if st.button("🚀 Generar Introducción Completa"):
     if not (titulo and objetivo_general):
-        st.warning("Completa título y objetivo general.")
+        st.warning("Ingresa tanto el título como el objetivo general.")
         st.stop()
 
-    with st.spinner("Generando introducción con ChatGPT..."):
-        try:
-            intro = generar_introduccion(titulo, objetivo_general)
-        except Exception as e:
-            st.error(f"Error al llamar a OpenAI: {e}")
-            st.stop()
-
+    # 1. Introducción
+    with st.spinner("Generando introducción…"):
+        intro = generar_introduccion(titulo, objetivo_general)
     st.subheader("🧾 Introducción Generada")
-    st.markdown(intro)
+    st.write(intro)
 
-    st.subheader("📚 Antecedentes (PubMed, últimos 5 años)")
-    antecedentes = obtener_antecedentes(consulta_pubmed) if consulta_pubmed else []
-    if antecedentes:
-        for ant in antecedentes:
-            st.markdown(f"- {ant}")
+    # 2. Antecedentes
+    if keyword_pubmed:
+        with st.spinner("Extrayendo y parafraseando antecedentes…"):
+            articulos = buscar_articulos_pubmed(keyword_pubmed, num_articulos)
+            antecedentes = []
+            for a, i, y, abs_txt in articulos:
+                if abs_txt.strip():
+                    antecedentes.append(parafrasear_abstract(a, i, y, abs_txt))
+        st.subheader("📚 Antecedentes")
+        if antecedentes:
+            for parrafo in antecedentes:
+                st.markdown(parrafo)
+        else:
+            st.info("No se obtuvieron antecedentes para la palabra clave indicada.")
     else:
-        st.info("Introduce una palabra clave para obtener antecedentes.")
+        st.info("Ingresa una palabra clave (PubMed) para generar antecedentes.")
 
+    # 3. Bases teóricas y enfoques conceptuales
     st.subheader("🧠 Bases teóricas y enfoques conceptuales")
-    st.markdown(
-        "Se adoptarán teorías pertinentes para explicar la interacción de las variables, "
-        "y se delimitarán enfoques conceptuales que orientarán la operacionalización y el análisis."
+    bases_prompt = (
+        "Redacta en tercera persona y tiempo futuro, párrafos ≤10 líneas, las bases teóricas y enfoques conceptuales "
+        f"relacionados con el estudio titulado '{titulo}'."
     )
+    st.write(chat_gpt(bases_prompt, max_tokens=650))
 
+    # 4. Hipótesis
     st.subheader("🔬 Hipótesis")
-    st.markdown(
-        f"- **Hipótesis de investigación:** El objetivo general \"{objetivo_general}\" mostrará "
-        "una relación significativa con las variables exploradas."
+    hip_prompt = (
+        f"Formula hipótesis de investigación y las correspondientes hipótesis estadísticas basadas en el objetivo general: '{objetivo_general}'. "
+        "Redacta en tercera persona, tiempo futuro."
     )
-    st.markdown(
-        "- **Hipótesis estadísticas:** Se contrastará H0 (no hay efecto) frente a H1 (existe efecto) según el diseño."
-    )
+    st.write(chat_gpt(hip_prompt, max_tokens=300))
+
+    st.success("✅ Documento generado.")
