@@ -1,41 +1,32 @@
 import streamlit as st
-from huggingface_hub import InferenceClient
 import requests
 from docx import Document
 from typing import List
 import textwrap
 
 # ---------------- Configuración por defecto ---------------- #
+# Modo simple: sin modelo LLM ni tokens API
 
-DEFAULT_MODEL_ID = "mistralai/Mistral-7B-Instruct-v0.2"
-DEFAULT_HF_TOKEN = st.secrets.get("HF_TOKEN", "")  # Si no se configuró, queda vacío
+# ---------------- Cliente Hugging Face (desactivado) ---------------- #
 
-# ---------------- Cliente Hugging Face ---------------- #
+def get_client(token=None, model_id=None):
+    """Siempre retorna None para forzar el modo simple."""
+    return None
 
-def get_client(token: str | None = None, model_id: str = DEFAULT_MODEL_ID):
-    token = token or DEFAULT_HF_TOKEN
-    if not token:
-        return None  # Modo simple
-    return InferenceClient(model=model_id, token=token)
 
 def hf_generate(client, prompt: str, max_tokens: int = 1024, temperature: float = 0.3) -> str:
-    if client is None:  # Modo simple
-        return simple_llm(prompt)
-    return client.text_generation(
-        prompt,
-        max_new_tokens=max_tokens,
-        temperature=temperature,
-        top_p=0.9,
-        repetition_penalty=1.1,
-    )
+    """Wrapper que siempre llama al generador simple."""
+    return simple_llm(prompt)
 
-# ---------------- Modo simple (fallback) ---------------- #
+# ---------------- Modo simple ---------------- #
 
 def simple_paragraph(text: str) -> str:
-    wrapped = textwrap.fill(text, width=100)
-    return wrapped
+    """Ajusta el texto para no exceder ~100 caracteres por línea."""
+    return textwrap.fill(text, width=100)
+
 
 def simple_llm(prompt: str) -> str:
+    """Genera texto placeholder cuando no hay modelo disponible."""
     placeholders = [
         "Se resaltará la trascendencia del fenómeno planteado y la pertinencia científica de abordarlo.",
         "Se describirá la magnitud del problema a escala global, regional y nacional, destacando sus repercusiones sanitarias y económicas.",
@@ -71,17 +62,16 @@ Al final escribe la línea EXACTA "===ANTECEDENTES===".
 Título: {title}
 Objetivo general: {objective}
 """
-    return hf_generate(client, prompt, max_tokens=4096)
+    return hf_generate(client, prompt)
+
 
 def paraphrase_abstract(client, abstract: str, word_count: int = 130) -> str:
-    if client is None:
-        return simple_paragraph("Resumen disponible para consulta; se presentará de forma sintética y libre de plagio en la versión final.")
-    prompt = (
-        f"Parafrasea en español académico el siguiente resumen en aproximadamente {word_count} palabras, evitando plagio:\n{abstract}"
-    )
-    return hf_generate(client, prompt, max_tokens=256, temperature=0.4)
+    """Devuelve texto genérico en modo simple."""
+    return simple_paragraph("Resumen disponible para consulta; se presentará de forma sintética y libre de plagio en la versión final.")
+
 
 def search_pubmed(query: str, n: int = 10) -> List[dict]:
+    """Obtiene n resúmenes de PubMed (sin token)."""
     base = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/"
     ids = requests.get(base + "esearch.fcgi", params={"db": "pubmed", "term": query, "retmax": n, "retmode": "json"}).json()["esearchresult"]["idlist"]
     items = []
@@ -92,7 +82,7 @@ def search_pubmed(query: str, n: int = 10) -> List[dict]:
         if not abstract:
             continue
         authors = re.findall(r"<LastName>(.*?)</LastName>.*?<Initials>(.*?)</Initials>", xml, re.S)
-        year = re.search(r"<PubDate>.*?<Year>(\d{4})</Year>", xml, re.S)
+        year = re.search(r"<PubDate>.*?<Year>(\\d{4})</Year>", xml, re.S)
         if authors:
             first = f"{authors[0][0]}, {authors[0][1][0]}."
             cite = first + (" et al." if len(authors) > 3 else "")
@@ -104,29 +94,20 @@ def search_pubmed(query: str, n: int = 10) -> List[dict]:
         })
     return items[:n]
 
+
 def build_antecedents(client, pubs: List[dict]) -> str:
     return "\n\n".join(
         f"{p['cite']} {paraphrase_abstract(client, p['abstract'])}" for p in pubs
     ) or "Sin referencias disponibles."
 
+
 def generate_theoretical_bases(client, title: str, objective: str) -> str:
-    if client is None:
-        return simple_paragraph("Se desarrollarán los fundamentos conceptuales que sustentan la relación entre las variables propuestas y se explicará el marco teórico que guiará el análisis.")
-    prompt = (
-        "Redacta las bases teóricas pertinentes a la pregunta de investigación, incluyendo enfoques conceptuales y variables clave. "
-        "Prosa académica, tercera persona, futuro indicativo.\n"
-        f"Título: {title}\nObjetivo general: {objective}"
-    )
-    return hf_generate(client, prompt, max_tokens=1024)
+    return simple_paragraph("Se desarrollarán los fundamentos conceptuales que sustentan la relación entre las variables propuestas y se explicará el marco teórico que guiará el análisis.")
+
 
 def generate_hypotheses(client, objective: str) -> str:
-    if client is None:
-        return simple_paragraph("Hipótesis de investigación y estadísticas serán formuladas relacionando las variables primarias para demostrar la dirección y fuerza del efecto esperado.")
-    prompt = (
-        "Formula la hipótesis de investigación y las hipótesis estadísticas (nula y alternativa) basadas en el siguiente objetivo general.\n"
-        f"{objective}"
-    )
-    return hf_generate(client, prompt, max_tokens=256)
+    return simple_paragraph("Hipótesis de investigación y estadísticas serán formuladas relacionando las variables primarias para demostrar la dirección y fuerza del efecto esperado.")
+
 
 def build_docx(intro: str, antecedentes: str, bases: str, hyps: str) -> bytes:
     doc = Document()
@@ -158,18 +139,16 @@ def build_docx(intro: str, antecedentes: str, bases: str, hyps: str) -> bytes:
 # ---------------- Interfaz Streamlit ---------------- #
 
 st.set_page_config(page_title="Generador de Introducciones de Tesis", layout="wide")
-st.title("📝 Generador Automático de Introducciones de Tesis – Modo LLM o Simple")
+st.title("📝 Generador Automático de Introducciones de Tesis – Solo Modo Simple")
 
 with st.sidebar:
     st.header("Configuración")
-    hf_token = st.text_input("Hugging Face API Token (opcional)", type="password", value="")
-    model_id = st.text_input("ID del modelo (HF Hub)", value=DEFAULT_MODEL_ID)
     title_input = st.text_input("Título de la Investigación")
     objective_input = st.text_area("Objetivo General")
     generate_btn = st.button("Generar Introducción")
 
 if generate_btn:
-    client = get_client(hf_token, model_id)
+    client = get_client()  # Siempre None
 
     with st.spinner("Generando introducción…"):
         intro = generate_introduction(client, title_input, objective_input)
@@ -188,16 +167,4 @@ if generate_btn:
     st.markdown(bases)
 
     with st.spinner("Generando hipótesis…"):
-        hyps = generate_hypotheses(client, objective_input)
-    st.subheader("Hipótesis")
-    st.markdown(hyps)
-
-    st.success("¡Secciones generadas! Puedes copiar el texto o exportar a Word.")
-
-    docx_bytes = build_docx(intro, antecedentes, bases, hyps)
-    st.download_button(
-        label="Descargar Word (.docx)",
-        data=docx_bytes,
-        file_name="proyecto_tesis_generado.docx",
-        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-    )
+        hyps = generate_hypotheses(client, objective
