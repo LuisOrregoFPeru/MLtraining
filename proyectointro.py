@@ -1,71 +1,74 @@
 import streamlit as st
 import datetime
+import requests
+import xml.etree.ElementTree as ET
 
-st.set_page_config(page_title="Asistente de Tesis", layout="wide")
-st.title("📝 Asistente para la Elaboración de Proyectos de Tesis")
+st.set_page_config(page_title="Asistente de Tesis Automático", layout="wide")
+st.title("🤖 Generador Automático de Introducción de Proyecto de Tesis")
 
 st.markdown("""
-Esta aplicación te ayudará a estructurar el capítulo de **Introducción** de tu tesis. A partir de un título propuesto, podrás redactar los elementos fundamentales del primer capítulo según las buenas prácticas académicas. 
-
-Asegúrate de escribir en **prosa**, en **tercera persona** y en **tiempo pasado del modo indicativo**.
+Esta aplicación web genera automáticamente la sección de **Introducción** de un proyecto de tesis a partir de un **título** o **objetivo general** proporcionado por el usuario. La redacción se realiza en **prosa**, en **tercera persona** y en **tiempo futuro del modo indicativo**, siguiendo una estructura académica rigurosa.
 """)
 
-# Entrada del título del proyecto
-titulo = st.text_input("🎓 Ingresa el título del proyecto de tesis")
+# Entradas del usuario
+titulo = st.text_input("🎓 Ingresa el título del proyecto de tesis (opcional)")
+objetivo_general = st.text_area("🎯 Ingresa el objetivo general de la investigación")
+consulta_pubmed = st.text_input("🔎 Palabra clave para búsqueda de antecedentes en PubMed")
 
-st.subheader("1. Introducción")
-st.markdown("Redacta tu introducción en el cuadro a continuación. Puedes guiarte con los elementos propuestos.")
+# Buscar artículos recientes en PubMed
+@st.cache_data
+def buscar_antecedentes_pubmed(termino):
+    fecha_actual = datetime.date.today()
+    anio_actual = fecha_actual.year
+    anio_inicio = anio_actual - 5
+    url_search = (
+        f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?"
+        f"db=pubmed&term={termino}&retmax=5&retmode=json&mindate={anio_inicio}&datetype=pdat"
+    )
+    r = requests.get(url_search)
+    if r.status_code != 200:
+        return []
+    ids = r.json().get("esearchresult", {}).get("idlist", [])
+    if not ids:
+        return []
+    url_fetch = (
+        f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?"
+        f"db=pubmed&id={','.join(ids)}&retmode=xml"
+    )
+    r = requests.get(url_fetch)
+    root = ET.fromstring(r.content)
+    abstracts = []
+    for article in root.findall(".//PubmedArticle"):
+        title = article.findtext(".//ArticleTitle", default="Título no disponible")
+        abstract_elem = article.find(".//Abstract/AbstractText")
+        abstract = abstract_elem.text if abstract_elem is not None else "Resumen no disponible"
+        abstracts.append(f"**{title}**: {abstract}")
+    return abstracts
 
-intro = st.text_area("✍️ Introducción (mínimo 9 páginas A4 en redacción final):", height=400)
+if st.button("📝 Generar Introducción"):
+    st.subheader("🧾 Introducción Generada")
+    st.markdown(f"A partir del análisis del objetivo general '{objetivo_general}', se desarrollará una investigación que abordará una problemática actual de relevancia científica y social.")
 
-with st.expander("🧩 Guía para redactar la introducción"):
-    st.markdown("""
-    - Exponer la **realidad problemática** de forma general, incluyendo datos sobre frecuencia y morbimortalidad global, en América Latina y Perú.
-    - Presentar **antecedentes científicos relevantes** que fundamenten la pregunta de investigación.
-    - Identificar **vacíos o limitaciones en la literatura existente**.
-    - Explicar cómo el estudio **abordará esas limitaciones**.
-    - Discutir la **utilidad de resolver la pregunta de investigación**.
-    - Relacionar el tema con los **Objetivos de Desarrollo Sostenible (ODS)** pertinentes.
-    """)
+    st.markdown("En primer lugar, se expondrá de manera general la realidad problemática. Se describirá su impacto en términos de frecuencia y morbimortalidad asociada, considerando datos relevantes a nivel mundial, regional (América Latina) y nacional (Perú).")
 
-st.subheader("2. Problema de investigación")
-problema = st.text_area("❓ Formula el problema de investigación en modo interrogativo")
+    st.markdown("A continuación, se presentarán antecedentes científicos obtenidos de estudios primarios recientes, preferentemente publicados en PubMed durante los últimos cinco años. Estos hallazgos sustentarán la plausibilidad científica del problema abordado.")
 
-st.subheader("3. Justificación")
-justificacion_teorica = st.text_area("📚 Justificación teórica")
-justificacion_practica = st.text_area("🛠 Justificación práctica")
-justificacion_metodologica = st.text_area("🔬 Justificación metodológica")
-justificacion_social = st.text_area("👥 Justificación social")
+    antecedentes = buscar_antecedentes_pubmed(consulta_pubmed)
+    if antecedentes:
+        st.markdown("**Antecedentes relevantes:**")
+        for a in antecedentes:
+            st.markdown(f"- {a}")
+    else:
+        st.warning("No se encontraron antecedentes recientes con esa palabra clave.")
 
-st.subheader("4. Objetivos")
-objetivo_general = st.text_area("🎯 Objetivo general")
-objetivos_especificos = st.text_area("📌 Objetivos específicos (uno por línea)")
+    st.markdown("Posteriormente, se identificarán vacíos en la literatura existente, como la escasez de investigaciones pertinentes, estudios limitados a contextos no generalizables o deficiencias metodológicas.")
 
-st.subheader("5. Revisión de Literatura")
-revision_literatura = st.text_area("🔍 Síntesis de antecedentes nacionales e internacionales (PubMed, Scopus, WoS, SciELO)", height=300)
+    st.markdown("El problema de investigación se formulará en modo interrogativo, considerando la relación directa con los objetivos propuestos y el marco conceptual de la investigación.")
 
-st.subheader("6. Fundamentación teórica y conceptual")
-teorias_relacionadas = st.text_area("📖 Teorías relacionadas al tema")
-enfoques_conceptuales = st.text_area("🧠 Enfoques conceptuales vinculados a las variables")
+    st.markdown("La justificación del estudio se estructurará en cuatro dimensiones: teórica, práctica, metodológica y social, lo que permitirá sustentar la relevancia y viabilidad del estudio.")
 
-st.subheader("7. Hipótesis (si aplica)")
-hipotesis = st.text_area("🔬 Hipótesis de investigación")
+    st.markdown("Asimismo, se discutirá la utilidad potencial de responder a la pregunta de investigación, subrayando la importancia del tema en el contexto académico y su contribución a los Objetivos de Desarrollo Sostenible (ODS).")
 
-# Exportación o resumen
-if st.button("📄 Generar vista previa del capítulo"):
-    st.markdown("---")
-    st.subheader("🧾 Vista Previa del Capítulo 1: Introducción")
-    st.markdown(f"**Título del proyecto:** {titulo}")
-    st.markdown(f"**Introducción:**\n{intro}")
-    st.markdown(f"**Problema de investigación:**\n{problema}")
-    st.markdown("**Justificación:**")
-    st.markdown(f"- Teórica: {justificacion_teorica}")
-    st.markdown(f"- Práctica: {justificacion_practica}")
-    st.markdown(f"- Metodológica: {justificacion_metodologica}")
-    st.markdown(f"- Social: {justificacion_social}")
-    st.markdown(f"**Objetivo general:**\n{objetivo_general}")
-    st.markdown(f"**Objetivos específicos:**\n{objetivos_especificos}")
-    st.markdown(f"**Revisión de literatura:**\n{revision_literatura}")
-    st.markdown(f"**Teorías relacionadas:**\n{teorias_relacionadas}")
-    st.markdown(f"**Enfoques conceptuales:**\n{enfoques_conceptuales}")
-    st.markdown(f"**Hipótesis:**\n{hipotesis if hipotesis else 'No aplica.'}")
+    st.markdown(f"Se definirá formalmente el siguiente objetivo general: {objetivo_general}. Además, se derivarán objetivos específicos que orientarán el desarrollo metodológico del estudio.")
+
+    st.markdown("Finalmente, se desarrollará un análisis teórico-conceptual que incluirá las principales teorías relacionadas con la problemática abordada, así como los enfoques conceptuales vinculados a las variables o categorías en estudio. También se indicará de qué manera este análisis contribuirá a superar las limitaciones identificadas en la literatura.")
