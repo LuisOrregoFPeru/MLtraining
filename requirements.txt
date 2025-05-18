@@ -1,1 +1,5 @@
-txt streamlit openai>=1.3.0 requests
+streamlit
+openai>=1.3.0
+requests
+
+fix: correct requirements formatting
