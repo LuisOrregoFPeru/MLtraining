@@ -5,7 +5,7 @@ from docx import Document
 from datetime import date
 from typing import List
 
-"""
+""" 
 Aplicación Streamlit para generar introducciones de tesis SIN exponer tu clave:
 * Introducción ≥ 9 páginas A4 (prosa, 3.ª persona, futuro indicativo)
 * 10 antecedentes de PubMed parafraseados
