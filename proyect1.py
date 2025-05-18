@@ -41,7 +41,7 @@ def generate_introduction(title: str, objective: str, min_words: int = 4500) -> 
         "La revisión de la literatura revelará una escasez de estudios con diseños robustos y muestras representativas, así como la predominancia de investigaciones en contextos poco comparables.",
         "Persistirán vacíos metodológicos y ausencia de modelos de análisis integrales que contemplen las variables económicas y socioculturales vinculadas al problema.",
         "La investigación contribuirá al Objetivo de Desarrollo Sostenible 3, meta 3.8, orientada a garantizar una vida sana y promover el bienestar para todos en todas las edades.",
-        f"¿En qué medida {title_l} se asociará con los resultados planteados en el objetivo general propuesto?",  
+        f"¿En qué medida {title_l} se asociará con los resultados planteados en el objetivo general propuesto?",
         "Teóricamente, el trabajo ampliará los marcos de referencia actuales al integrar perspectivas epidemiológicas, económicas y de comportamiento, fortaleciendo la explicación causal del fenómeno.",
         "En el plano práctico, los hallazgos permitirán optimizar estrategias de prevención y asignación de recursos, beneficiando la toma de decisiones de gestores y clínicos.",
         "Metodológicamente, se empleará un diseño de investigación riguroso que garantizará validez interna y externa, con mediciones estandarizadas y análisis multivariados.",
@@ -74,24 +74,28 @@ def generate_hypotheses(title: str) -> str:
     )
     return wrap(hip_inv) + "\n\n" + wrap(hip_est)
 
-# --------- DOCX builder ---------
+# --------- DOCX builder corregido ---------
 def build_docx(intro: str, bases: str, hyps: str) -> bytes:
     doc = Document()
     doc.add_heading("Proyecto de Tesis – Secciones Generadas", level=1)
+
     # Introducción
     doc.add_heading("Introducción", level=2)
     for line in intro.splitlines():
         doc.add_paragraph(line)
     doc.add_page_break()
+
     # Bases Teóricas
     doc.add_heading("Bases Teóricas", level=2)
-    for line in generate_theoretical_bases_lines:
+    for line in bases.splitlines():
         doc.add_paragraph(line)
     doc.add_page_break()
+
     # Hipótesis
     doc.add_heading("Hipótesis", level=2)
     for line in hyps.splitlines():
         doc.add_paragraph(line)
+
     buffer = BytesIO()
     doc.save(buffer)
     return buffer.getvalue()
@@ -107,14 +111,18 @@ if st.sidebar.button("Generar Secciones"):
     intro_text = generate_introduction(title_input, objective_input)
     bases_text = generate_theoretical_bases(objective_input)
     hyps_text = generate_hypotheses(title_input)
-    # Mostrar
+
+    # Mostrar en pantalla
     st.subheader("Introducción")
     st.markdown(intro_text)
+
     st.subheader("Bases Teóricas")
     st.markdown(bases_text)
+
     st.subheader("Hipótesis")
     st.markdown(hyps_text)
-    # Descargar DOCX
+
+    # Botón de descarga
     docx_data = build_docx(intro_text, bases_text, hyps_text)
     st.download_button(
         "Descargar DOCX",
