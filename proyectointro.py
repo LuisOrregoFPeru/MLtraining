@@ -48,7 +48,6 @@ def simple_paragraph(text: str) -> str:
 
 def simple_llm(prompt: str) -> str:
     """Genera un texto rudimentario si no hay modelo LLM disponible."""
-    # Muy básico: divide el prompt en líneas y produce un placeholder
     placeholders = [
         "Se resaltará la trascendencia del fenómeno planteado y la pertinencia científica de abordarlo.",
         "Se describirá la magnitud del problema a escala global, regional y nacional, destacando sus repercusiones sanitarias y económicas.",
@@ -107,7 +106,7 @@ def search_pubmed(query: str, n: int = 10) -> List[dict]:
         if not abstract:
             continue
         authors = re.findall(r"<LastName>(.*?)</LastName>.*?<Initials>(.*?)</Initials>", xml, re.S)
-        year = re.search(r"<PubDate>.*?<Year>(\\d{4})</Year>", xml, re.S)
+        year = re.search(r"<PubDate>.*?<Year>(\d{4})</Year>", xml, re.S)
         if authors:
             first = f"{authors[0][0]}, {authors[0][1][0]}."
             cite = first + (" et al." if len(authors) > 3 else "")
@@ -202,4 +201,21 @@ if generate_btn:
     st.markdown(antecedentes)
 
     with st.spinner("Generando bases teóricas…"):
-        bases = generate_theoretical_bases(client, title_input, objective
+        bases = generate_theoretical_bases(client, title_input, objective_input)
+    st.subheader("Bases Teóricas")
+    st.markdown(bases)
+
+    with st.spinner("Generando hipótesis…"):
+        hyps = generate_hypotheses(client, objective_input)
+    st.subheader("Hipótesis")
+    st.markdown(hyps)
+
+    st.success("¡Secciones generadas! Puedes copiar el texto o exportar a Word.")
+
+    docx_bytes = build_docx(intro, antecedentes, bases, hyps)
+    st.download_button(
+        label="Descargar Word (.docx)",
+        data=docx_bytes,
+        file_name="proyecto_tesis_generado.docx",
+        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    )
