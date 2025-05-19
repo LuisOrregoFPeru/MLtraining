@@ -179,8 +179,8 @@ elif analisis.startswith("2️⃣"):
         "Acumulado":          acumulado
     })
     df_display = df.copy()
-    df_display["Casos intervención actual"]    = df_display["Casos actuales"].map("{:,.0f}".format)
-    df_display["Casos intevención nueva"]      = df_display["Casos nuevos"].map("{:,.0f}".format)
+    df_display["Casos intervención actual"]    = df_display["Casos intervención actual"].map("{:,.0f}".format)
+    df_display["Casos intevención nueva"]      = df_display["Casos intervención nueva"].map("{:,.0f}".format)
     df_display["Costo incremental"] = df_display["Costo incremental"].map("{:,.2f}".format)
     df_display["Acumulado"]         = df_display["Acumulado"].map("{:,.2f}".format)
     st.dataframe(df_display, hide_index=True, use_container_width=True)
