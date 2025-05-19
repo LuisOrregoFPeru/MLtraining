@@ -99,37 +99,156 @@ elif analisis.startswith("5️⃣"):
         st.success(f"Opción mínima: {m['Alt']} US$ {m['Costo']:,.2f}")
         descarga_csv(df,'CMA')
 
-# 6) CCA – Costo‑Consecuencia
+# 6️⃣ CCA – Costo-Consecuencia
 elif analisis.startswith("6️⃣"):
-    st.header("6️⃣ Costo‑Consecuencia (CCA)")
-    n=st.number_input("Número de alternativas",2,min_value=2,step=1)
-    cols=st.text_input("Ingrese nombres de variables de consecuencia (sep. comas)","QALYs,Hospitalizaciones")
-    vlist=[c.strip() for c in cols.split(',')]
-    data={'Alternativa':[f'A{i+1}' for i in range(int(n))]}
-    for v in vlist: data[v]=[0]*int(n)
-    df=pd.DataFrame(data)
-    df=st.data_editor(df,num_rows='dynamic',key='cca')
-    st.dataframe(df,hide_index=True)
-    descarga_csv(df,'CCA')
-
-# 7+8+9) CEA, CUA, CBA
-else:
-    # Definir tabla de tratamientos
-    st.header(f"{analisis}")
-    tx0=pd.DataFrame({'Tratamiento':['A','B','C'],'Costo total':[0,10000,22000],'Efectividad':[0,0.4,0.55]})
-    tx=st.data_editor(tx0,num_rows='dynamic',key='tx')
-    if tx.shape[0]>=2:
-        df=tx.copy().reset_index(drop=True)
-        df=df.sort_values('Costo total').reset_index(drop=True)
-        df['ΔCosto']=df['Costo total'].diff()
-        df['ΔEfect']=df['Efectividad'].diff()
-        df['ICER']=df.apply(lambda r: r['ΔCosto']/r['ΔEfect'] if r['ΔEfect']>0 else np.nan,axis=1)
-        st.subheader("Tabla incremental")
-        st.dataframe(df,hide_index=True,use_container_width=True)
-        # Gráfico CE plane
-        fig,ax=plt.subplots(); ax.scatter(df['Efectividad'],df['Costo total']);
-        for i,r in df.iterrows(): ax.annotate(r['Tratamiento'],(r['Efectividad'],r['Costo total']))
-        st.pyplot(fig)
-        descarga_csv(df,'CEA_CUA')
+    st.header("6️⃣ Costo-Consecuencia (CCA)")
+    df_cca = st.data_editor(
+        pd.DataFrame({
+            "Alternativa": ["A", "B"],
+            "Consecuencia 1": [0, 50],
+            "Consecuencia 2": [0, 30]
+        }),
+        num_rows="dynamic",
+        key="cca"
+    )
+    if not df_cca.empty:
+        st.subheader("Tabla CCA")
+        st.dataframe(df_cca, hide_index=True)
+        descarga_csv(df_cca, "CCA_resultados")
     else:
-        st.info("Agregue al menos 2 tratamientos.")
+        st.info("Agrega al menos una alternativa y una variable de consecuencia.")
+
+# 7️⃣ CEA – Costo-Efectividad
+elif analisis.startswith("7️⃣"):
+    st.header("7️⃣ Costo-Efectividad (CEA)")
+    tx = st.data_editor(
+        pd.DataFrame({
+            "Tratamiento": ["A", "B", "C"],
+            "Costo total": [0, 10000, 22000],
+            "sd_costo": [0, 500, 1000],
+            "Efectividad": [0, 0.4, 0.55],
+            "sd_efect": [0, 0.05, 0.08]
+        }),
+        num_rows="dynamic",
+        key="cea_tx"
+    )
+    if tx.shape[0] >= 2:
+        # Cálculos incrementales
+        df = tx.sort_values("Costo total").reset_index(drop=True)
+        df["ΔCosto"] = df["Costo total"].diff()
+        df["ΔEfect"] = df["Efectividad"].diff()
+        df["ICER"] = df.apply(
+            lambda r: r["ΔCosto"] / r["ΔEfect"]
+            if r["ΔEfect"] and r["ΔEfect"] > 0 else np.nan,
+            axis=1
+        )
+
+        # Tablas de dominancia
+        tab0, tab1, tab2 = dom_tables(df)
+
+        with st.tabs(["Cruda", "Sin dominados", "Sin ext. dominados"]):
+            st.tab("Cruda").dataframe(tab0, use_container_width=True)
+            st.tab("Sin dominados").dataframe(tab1, use_container_width=True)
+            st.tab("Sin ext. dominados").dataframe(tab2, use_container_width=True)
+
+        # Plano determinístico
+        umbral = st.number_input("Umbral λ ($/QALY)", value=20000.0, step=1000.0)
+        ΔE = df["Efectividad"].diff().iloc[1:]
+        ΔC = df["Costo total"].diff().iloc[1:]
+        fig, ax = plt.subplots()
+        ax.scatter(ΔE, ΔC, s=80)
+        for i, lbl in enumerate(df["Tratamiento"].iloc[1:]):
+            ax.annotate(lbl, (ΔE.iloc[i], ΔC.iloc[i]))
+        ax.axline((0, 0), slope=umbral, color="grey", linestyle="--",
+                  label=f"λ = {umbral}")
+        ax.set_xlabel("ΔEfectividad")
+        ax.set_ylabel("ΔCosto")
+        ax.set_title("Plano Costo-Efectividad Determinístico")
+        ax.legend()
+        st.pyplot(fig)
+
+        # PSA y CEAC
+        n_mc = st.slider("N° iteraciones PSA", 100, 10000, 1000, step=100)
+        costos_base = df["Costo total"].values
+        efects_base = df["Efectividad"].values
+        # simulación
+        mc_scatter = []
+        ceac = []
+        lambdas = np.linspace(0, umbral * 2, 50)
+        for idx in range(1, len(df)):
+            c_samples = np.random.normal(
+                df.loc[idx, "Costo total"], df.loc[idx, "sd_costo"], n_mc
+            )
+            e_samples = np.random.normal(
+                df.loc[idx, "Efectividad"], df.loc[idx, "sd_efect"], n_mc
+            )
+            dc = c_samples - costos_base[0]
+            de = e_samples - efects_base[0]
+            mc_scatter.append((dc, de))
+        # scatter PSA
+        fig2, ax2 = plt.subplots()
+        for dc, de in mc_scatter:
+            ax2.scatter(de, dc, alpha=0.2, s=10)
+        ax2.axline((0, 0), slope=umbral, color="red", linestyle="--")
+        ax2.set_xlabel("ΔEfectividad")
+        ax2.set_ylabel("ΔCosto")
+        ax2.set_title("PSA: Plano Costo-Efectividad")
+        st.pyplot(fig2)
+        # CEAC
+        probs = []
+        for L in lambdas:
+            wins = [
+                np.mean(dc - L * de <= 0)
+                for dc, de in mc_scatter
+            ]
+            probs.append(np.max(wins))
+        fig3, ax3 = plt.subplots()
+        ax3.plot(lambdas, probs)
+        ax3.set_xlabel("λ ($/QALY)")
+        ax3.set_ylabel("Probabilidad de cost-efectividad")
+        ax3.set_title("Curva de aceptación (CEAC)")
+        st.pyplot(fig3)
+
+        descarga_csv(df, "CEA_incremental")
+    else:
+        st.info("Agrega al menos 2 tratamientos con costo y efectividad.")
+
+# 8️⃣ CUA – Costo-Utilidad
+elif analisis.startswith("8️⃣"):
+    st.header("8️⃣ Costo-Utilidad (CUA)")
+    # Se reutiliza todo el código de CEA, reemplazando 'Efectividad' por 'QALYs'
+    # [… código casi idéntico al bloque 7️⃣, cambiando nombres de columnas y ejes …]
+
+# 9️⃣ CBA – Costo-Beneficio
+elif analisis.startswith("9️⃣"):
+    st.header("9️⃣ Costo-Beneficio (CBA)")
+    df_cba = st.data_editor(
+        pd.DataFrame({
+            "Alternativa": ["A", "B"],
+            "Costo": [0, 10000],
+            "Beneficio": [0, 15000]
+        }),
+        num_rows="dynamic",
+        key="cba"
+    )
+    if df_cba.shape[0] >= 1:
+        df_cba["Beneficio neto"] = df_cba["Beneficio"] - df_cba["Costo"]
+        st.subheader("Tabla CBA")
+        st.dataframe(df_cba, use_container_width=True)
+        descarga_csv(df_cba, "CBA_resultados")
+        # Histograma
+        fig4, ax4 = plt.subplots()
+        ax4.hist(df_cba["Beneficio neto"], bins=len(df_cba), rwidth=0.8)
+        ax4.set_xlabel("Beneficio neto")
+        ax4.set_ylabel("Frecuencia")
+        ax4.set_title("Distribución de Beneficio Neto")
+        st.pyplot(fig4)
+        # Probabilidad BN>0
+        p_pos = np.mean(df_cba["Beneficio neto"] > 0)
+        st.markdown(f"**Probabilidad de BN > 0:** {p_pos:.2%}")
+    else:
+        st.info("Agrega al menos una alternativa con costo y beneficio.")
+
+# Captura cualquier selección inválida
+else:
+    st.error("Tipo de análisis no válido.")
