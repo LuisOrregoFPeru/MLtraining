@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import io
+import matplotlib.ticker as mticker
 
 # ---------------------------------------------------------
 # SUITE COMPLETA DE EVALUACIONES ECONÓMICAS EN SALUD – Versión 1.2
@@ -125,79 +126,82 @@ if analisis.startswith("1️⃣"):
 # 2) BIA – Impacto Presupuestario
 elif analisis.startswith("2️⃣"):
     st.header("2️⃣ Impacto Presupuestario (BIA)")
+
     # 1. Costos de intervenciones
-    costo_actual = st.number_input(
-        "Costo intervención actual (UM)", min_value=0.0, step=1.0
-    )
-    costo_nueva = st.number_input(
-        "Costo intervención nueva (UM)", min_value=0.0, step=1.0
-    )
+    costo_actual = st.number_input("Costo intervención actual (UM)", min_value=0.0, step=1.0)
+    costo_nueva  = st.number_input("Costo intervención nueva (UM)",  min_value=0.0, step=1.0)
     delta = costo_nueva - costo_actual
     st.write(f"**Δ Costo por caso tratado:** UM {delta:,.2f}")
 
-    # 2. Población objetivo por prevalencia
-    pop_total = st.number_input(
-        "Población total", min_value=1, step=1
+    # 2. Método para definir casos anuales
+    metodo = st.radio(
+        "Definir población objetivo por:",
+        ("Prevalencia (%) y población total", "Casos anuales directos")
     )
-    prevalencia = st.number_input(
-        "Prevalencia del evento (%)", 
-        min_value=0.0, max_value=100.0, value=100.0, step=0.1
-    )
-    pop_obj = pop_total * prevalencia / 100.0
-    st.write(f"Población objetivo (prevalencia): {pop_obj:.0f} ({prevalencia}%)")
+    if metodo == "Prevalencia (%) y población total":
+        pop_total   = st.number_input("Población total", min_value=1, step=1)
+        prevalencia = st.number_input(
+            "Prevalencia del evento (%)", 
+            min_value=0.0, max_value=100.0, value=100.0, step=0.1
+        )
+        casos_anio = int(pop_total * prevalencia / 100.0)
+        st.write(f"Casos/año estimados: {casos_anio:,d} ({prevalencia:.1f}% de {pop_total:,d})")
+    else:
+        casos_anio = st.number_input("Número de casos anuales", min_value=0, step=1)
+        st.write(f"Casos por año: {casos_anio:,d}")
 
-    # 3. Casos por año
-    casos_anio = st.number_input(
-        "Casos por año", min_value=0, step=1
-    )
-    st.write(f"Casos por año: {casos_anio}")
-
-    # 4. Horizonte y PIM
+    # 3. Horizonte y PIM
     yrs = st.number_input("Horizonte (años)", 1, step=1)
     pim = st.number_input("PIM (Presupuesto Inicial Modificado)", 1, step=1)
 
-    # 5. Sliders anuales de introducción (%)
-    uptake_list = []
-    for i in range(int(yrs)):
-        pct = st.slider(
-            f"Introducción año {i+1} (%)",
-            min_value=0, max_value=100, value=100, step=1,
+    # 4. Sliders anuales de introducción (%)
+    uptake_list = [
+        st.slider(
+            f"Introducción año {i+1} (%)", 
+            0, 100, 100, 1, 
             key=f"uptake_{i}"
         )
-        uptake_list.append(pct)
+        for i in range(int(yrs))
+    ]
 
-    # 6. Cálculos por año
-    uso_nueva   = [casos_anio * pct/100 for pct in uptake_list]
-    uso_actual  = [casos_anio - un for un in uso_nueva]
-    cost_inc    = [delta * un for un in uso_nueva]
-    acumulado   = np.cumsum(cost_inc)
+    # 5. Cálculos por año
+    uso_nueva  = [casos_anio * pct/100 for pct in uptake_list]
+    uso_actual = [casos_anio - un for un in uso_nueva]
+    cost_inc   = [delta * un for un in uso_nueva]
+    acumulado  = np.cumsum(cost_inc)
 
-    # 7. Resultado en DataFrame
+    # 6. Mostrar tabla con separadores de miles
     df = pd.DataFrame({
-        "Año":                 [f"Año {i+1}" for i in range(int(yrs))],
-        "Casos actuales":      uso_actual,
-        "Casos nuevos":        uso_nueva,
-        "Costo incremental":   cost_inc,
-        "Acumulado":           acumulado
+        "Año":                [f"Año {i+1}" for i in range(int(yrs))],
+        "Casos actuales":     uso_actual,
+        "Casos nuevos":       uso_nueva,
+        "Costo incremental":  cost_inc,
+        "Acumulado":          acumulado
     })
+    df_display = df.copy()
+    df_display["Casos actuales"]    = df_display["Casos actuales"].map("{:,.0f}".format)
+    df_display["Casos nuevos"]      = df_display["Casos nuevos"].map("{:,.0f}".format)
+    df_display["Costo incremental"] = df_display["Costo incremental"].map("{:,.2f}".format)
+    df_display["Acumulado"]         = df_display["Acumulado"].map("{:,.2f}".format)
+    st.dataframe(df_display, hide_index=True, use_container_width=True)
 
-    st.dataframe(df, hide_index=True, use_container_width=True)
     st.success(f"Acumulado en {yrs} años: UM {acumulado[-1]:,.2f}")
     if pim > 0:
         st.info(f"Impacto por PIM: UM {acumulado[-1]/pim:,.2f}")
 
-    # 8. Gráfico de tendencia de casos
-    fig, ax = plt.subplots()
-    ax.plot(df["Año"], df["Casos actuales"], marker="o", linestyle="-", label="Casos actuales")
-    ax.plot(df["Año"], df["Casos nuevos"],   marker="o", linestyle="--", label="Casos nuevos")
-    ax.set_xlabel("Año")
-    ax.set_ylabel("Número de casos")
-    ax.set_title("Tendencia de Casos: Actual vs. Nueva")
-    ax.legend()
-    fig.tight_layout()
-    st.pyplot(fig)
+    # 7. Gráfico de línea de tendencia de casos (con separadores)
+    fig1, ax1 = plt.subplots()
+    ax1.plot(df["Año"], df["Casos actuales"], marker="o", linestyle="-", label="Casos actuales")
+    ax1.plot(df["Año"], df["Casos nuevos"],   marker="o", linestyle="--", label="Casos nuevos")
+    ax1.set_xlabel("Año")
+    ax1.set_ylabel("Número de casos")
+    ax1.set_title("Tendencia de Casos: Actual vs. Nueva")
+    ax1.legend()
+    ax1.yaxis.set_major_formatter(mticker.FuncFormatter(lambda x, pos: f"{int(x):,}"))
+    fig1.tight_layout()
+    st.pyplot(fig1)
 
-    # 9. Gráfico de tendencia de costos
+    # 8. Gráfico de línea de tendencia de costos (con separadores)
     fig2, ax2 = plt.subplots()
     ax2.plot(df["Año"], df["Costo incremental"], marker="o", label="Costo incremental")
     ax2.plot(df["Año"], df["Acumulado"],        marker="o", label="Costo acumulado")
@@ -205,10 +209,11 @@ elif analisis.startswith("2️⃣"):
     ax2.set_ylabel("Costo (UM)")
     ax2.set_title("Tendencia de Costos Incremental y Acumulado")
     ax2.legend()
+    ax2.yaxis.set_major_formatter(mticker.FuncFormatter(lambda x, pos: f"{x:,.2f}"))
     fig2.tight_layout()
     st.pyplot(fig2)
 
-    # 10. Descargar resultados
+    # 9. Descargar resultados
     descarga_csv(df, "BIA_resultados")
 
 # 3) ROI – Retorno sobre la Inversión
