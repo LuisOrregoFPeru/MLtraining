@@ -128,20 +128,20 @@ elif analisis.startswith("2️⃣"):
     st.header("2️⃣ Impacto Presupuestario (BIA)")
 
     # 1. Costos de intervenciones
-    costo_actual = st.number_input("Costo intervención actual (UM)", min_value=0.0, step=1.0)
-    costo_nueva  = st.number_input("Costo intervención nueva (UM)",  min_value=0.0, step=1.0)
+    costo_actual = st.number_input("Costo intervención actual (U.M.)", min_value=0.0, step=1.0)
+    costo_nueva  = st.number_input("Costo intervención nueva (U.M.)",  min_value=0.0, step=1.0)
     delta = costo_nueva - costo_actual
-    st.write(f"**Δ Costo por caso tratado:** UM {delta:,.2f}")
+    st.write(f"**Δ Costo por caso tratado:** U.M. {delta:,.2f}")
 
     # 2. Método para definir casos anuales
     metodo = st.radio(
         "Definir población objetivo por:",
-        ("Prevalencia (%) y población total", "Casos anuales directos")
+        ("Prevalencia (%) y población total", "Casos anuales referidos")
     )
     if metodo == "Prevalencia (%) y población total":
         pop_total   = st.number_input("Población total", min_value=1, step=1)
         prevalencia = st.number_input(
-            "Prevalencia del evento (%)", 
+            "Prevalencia (%)", 
             min_value=0.0, max_value=100.0, value=100.0, step=0.1
         )
         casos_anio = int(pop_total * prevalencia / 100.0)
