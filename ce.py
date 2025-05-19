@@ -101,16 +101,38 @@ elif analisis.startswith("5️⃣"):
 
 # 6) CCA – Costo‑Consecuencia
 elif analisis.startswith("6️⃣"):
-    st.header("6️⃣ Costo‑Consecuencia (CCA)")
-    n=st.number_input("Número de alternativas",2,min_value=2,step=1)
-    cols=st.text_input("Ingrese nombres de variables de consecuencia (sep. comas)","QALYs,Hospitalizaciones")
-    vlist=[c.strip() for c in cols.split(',')]
-    data={'Alternativa':[f'A{i+1}' for i in range(int(n))]}
-    for v in vlist: data[v]=[0]*int(n)
-    df=pd.DataFrame(data)
-    df=st.data_editor(df,num_rows='dynamic',key='cca')
-    st.dataframe(df,hide_index=True)
-    descarga_csv(df,'CCA')
+    st.header("6️⃣ Costo-Consecuencia (CCA)")
+    # 1. Parámetros de entrada
+    n_alt = st.number_input(
+        "Número de alternativas", 
+        value=2, min_value=2, step=1
+    )
+    vars_txt = st.text_input(
+        "Variables de consecuencia (sep. por comas)", 
+        value="QALYs, Hospitalizaciones"
+    )
+    vlist = [v.strip() for v in vars_txt.split(",") if v.strip()]
+
+    # 2. Inicializar DataFrame con n_alt filas y columnas para cada variable
+    data = {"Alternativa": [f"A{i+1}" for i in range(n_alt)]}
+    for v in vlist:
+        data[v] = [0.0] * n_alt
+    df_cca = pd.DataFrame(data)
+
+    # 3. Editor interactivo
+    df_cca = st.data_editor(
+        df_cca, 
+        num_rows="dynamic", 
+        key="cca"
+    )
+
+    # 4. Validación y salida
+    if df_cca.empty:
+        st.info("Agrega al menos una alternativa y una variable de consecuencia.")
+    else:
+        st.subheader("Tabla de Costo-Consecuencia")
+        st.dataframe(df_cca, hide_index=True, use_container_width=True)
+        descarga_csv(df_cca, "CCA_resultados")
 
 # 7+8+9) CEA, CUA, CBA
 else:
