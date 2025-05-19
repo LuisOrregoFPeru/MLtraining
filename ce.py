@@ -138,7 +138,7 @@ elif analisis.startswith("6️⃣"):
 else:
     # Definir tabla de tratamientos
     st.header(f"{analisis}")
-    tx0=pd.DataFrame({'Tratamiento':['A','B','C'],'Costo total':[0,10000,22000],'Efectividad/Utilidad':[0,0.4,0.55]})
+    tx0=pd.DataFrame({'Tratamiento':['A','B','C'],'Costo total':[0,10000,22000],'Efectividad':[0,0.4,0.55]})
     tx=st.data_editor(tx0,num_rows='dynamic',key='tx')
     if tx.shape[0]>=2:
         df=tx.copy().reset_index(drop=True)
