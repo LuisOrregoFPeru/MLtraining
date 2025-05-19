@@ -125,36 +125,56 @@ if analisis.startswith("1️⃣"):
 # 2) BIA – Impacto Presupuestario
 elif analisis.startswith("2️⃣"):
     st.header("2️⃣ Impacto Presupuestario (BIA)")
-    # **Nuevos campos**: costo de intervención actual y nueva
+    # Costos de intervenciones
     costo_actual = st.number_input("Costo intervención actual (UM)", min_value=0.0, step=1.0)
     costo_nueva  = st.number_input("Costo intervención nueva (UM)",  min_value=0.0, step=1.0)
-    # Diferencia automática
     delta = costo_nueva - costo_actual
     st.write(f"**Δ Costo por paciente:** UM {delta:,.2f}")
-    
-    # Campos originales
+
+    # Porcentaje de introducción (y retiro equivalente)
+    uptake_pct = st.slider(
+        "Porcentaje de introducción de la nueva intervención (%)",
+        min_value=0, max_value=100, value=100, step=1
+    )
     pop = st.number_input("Población objetivo", 1, step=1)
-    yrs = st.number_input("Horizonte (años)",       1, step=1)
-    pag = st.number_input("N pagadores/asegurados", 1, step=1)
-    
-    anual = delta * pop
+    pop_nueva = pop * uptake_pct / 100
+    pop_actual = pop - pop_nueva
+    st.write(f"Población con nueva intervención: {pop_nueva:,.0f} ({uptake_pct}%)")
+    st.write(f"Población con intervención actual: {pop_actual:,.0f} ({100-uptake_pct}%)")
+
+    # Horizonte y PIM
+    yrs = st.number_input("Horizonte (años)", 1, step=1)
+    pim = st.number_input("PIM (Presupuesto Inicial Modificado)", 1, step=1)
+
+    # Cálculo del impacto
+    anual = delta * pop_nueva
     df = pd.DataFrame({
         "Año": [f"Año {i+1}" for i in range(int(yrs))],
         "Costo incremental": [anual] * int(yrs)
     })
     df["Acumulado"] = df["Costo incremental"].cumsum()
-    
+
+    # Mostrar resultados
     st.dataframe(df, hide_index=True, use_container_width=True)
     st.success(f"Acumulado en {yrs} años: UM {df['Acumulado'].iloc[-1]:,.2f}")
-    if pag > 0:
-        st.info(f"Impacto por pagador: UM {anual/pag:,.2f}")
-    
-    fig, ax = plt.subplots()
-    ax.bar(df["Año"], df["Costo incremental"])
-    st.pyplot(fig)
-    
-    descarga_csv(df, "BIA_resultados")
+    if pim > 0:
+        st.info(f"Impacto por PIM: UM {anual/pim:,.2f}")
 
+    # Gráfico de tendencia: uso intervención actual vs nueva
+    labels = [f"Año {i+1}" for i in range(int(yrs))]
+    uso_actual = [pop_actual] * int(yrs)
+    uso_nueva  = [pop_nueva]  * int(yrs)
+    fig, ax = plt.subplots()
+    ax.plot(labels, uso_actual, marker="o", linestyle="-", label="Actual")
+    ax.plot(labels, uso_nueva,  marker="o", linestyle="--", label="Nueva")
+    ax.set_xlabel("Año")
+    ax.set_ylabel("Número de pacientes")
+    ax.set_title("Tendencia de Uso: Intervención Actual vs. Nueva")
+    ax.legend()
+    fig.tight_layout()
+    st.pyplot(fig)
+
+    descarga_csv(df, "BIA_resultados")
 
 
 # 3) ROI – Retorno sobre la Inversión
