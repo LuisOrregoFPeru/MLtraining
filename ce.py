@@ -123,6 +123,7 @@ if analisis.startswith("1️⃣"):
 
 
 # 2) BIA – Impacto Presupuestario
+# 2) BIA – Impacto Presupuestario
 elif analisis.startswith("2️⃣"):
     st.header("2️⃣ Impacto Presupuestario (BIA)")
     # Costos de intervenciones
@@ -131,56 +132,48 @@ elif analisis.startswith("2️⃣"):
     delta = costo_nueva - costo_actual
     st.write(f"**Δ Costo por paciente:** UM {delta:,.2f}")
 
-    # Porcentaje de introducción (y retiro equivalente)
+    # Porcentaje de introducción de la nueva intervención
     uptake_pct = st.slider(
         "Porcentaje de introducción de la nueva intervención (%)",
-        min_value=0, max_value=100, value=100, step=1
+        0, 100, 100, 1
     )
     pop = st.number_input("Población objetivo", 1, step=1)
-    pop_nueva = pop * uptake_pct / 100
-    pop_actual = pop - pop_nueva
-    st.write(f"Población con nueva intervención: {pop_nueva:,.0f} ({uptake_pct}%)")
-    st.write(f"Población con intervención actual: {pop_actual:,.0f} ({100-uptake_pct}%)")
+    # Calculamos pacientes usando cada intervención
+    uso_nueva  = pop * uptake_pct / 100
+    uso_actual = pop - uso_nueva
+    st.write(f"Uso nueva: {uso_nueva:.0f} pacientes ({uptake_pct}%)")
+    st.write(f"Uso actual: {uso_actual:.0f} pacientes ({100-uptake_pct}%)")
 
     # Horizonte y PIM
     yrs = st.number_input("Horizonte (años)", 1, step=1)
     pim = st.number_input("PIM (Presupuesto Inicial Modificado)", 1, step=1)
 
-    # Cálculo del impacto
-    anual = delta * pop_nueva
+    # Impacto presupuestario anual sobre la fracción nueva
+    anual = delta * uso_nueva
     df = pd.DataFrame({
         "Año": [f"Año {i+1}" for i in range(int(yrs))],
         "Costo incremental": [anual] * int(yrs)
     })
     df["Acumulado"] = df["Costo incremental"].cumsum()
 
-    # Mostrar resultados
     st.dataframe(df, hide_index=True, use_container_width=True)
     st.success(f"Acumulado en {yrs} años: UM {df['Acumulado'].iloc[-1]:,.2f}")
     if pim > 0:
         st.info(f"Impacto por PIM: UM {anual/pim:,.2f}")
 
-# Gráfico de línea de tendencia de uso
-    trend_df = pd.DataFrame({
-        "Año": list(range(1, int(yrs) + 1)),
-        "Uso intervención actual": [uso_actual] * int(yrs),
-        "Uso intervención nueva":  [uso_nueva]  * int(yrs)
-    })
-
+    # Gráfico de línea de tendencia de uso
+    years = [f"Año {i+1}" for i in range(int(yrs))]
     fig, ax = plt.subplots()
-    ax.plot(trend_df["Año"], trend_df["Uso intervención actual"],
-            marker="o", linestyle="-", label="Actual")
-    ax.plot(trend_df["Año"], trend_df["Uso intervención nueva"],
-            marker="o", linestyle="--", label="Nueva")
-    ax.set_xticks(trend_df["Año"])
-    ax.set_xticklabels([f"Año {i}" for i in trend_df["Año"]])
+    ax.plot(years, [uso_actual]*len(years),
+            marker="o", linestyle="-", label="Uso intervención actual")
+    ax.plot(years, [uso_nueva]*len(years),
+            marker="o", linestyle="--", label="Uso intervención nueva")
     ax.set_xlabel("Año")
     ax.set_ylabel("Número de pacientes")
     ax.set_title("Tendencia de Uso: Actual vs. Nueva")
     ax.legend()
     fig.tight_layout()
     st.pyplot(fig)
-
 
     descarga_csv(df, "BIA_resultados")
 
