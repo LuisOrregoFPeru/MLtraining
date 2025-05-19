@@ -122,22 +122,40 @@ if analisis.startswith("1️⃣"):
     descarga_csv(coi_df.drop(columns="Variación (%)"), "COI_resultados")
 
 
-
 # 2) BIA – Impacto Presupuestario
 elif analisis.startswith("2️⃣"):
     st.header("2️⃣ Impacto Presupuestario (BIA)")
-    delta = st.number_input("Δ Costo por paciente (U.M.)",0)
-    pop   = st.number_input("Población objetivo",1)
-    yrs   = st.number_input("Horizonte (años)",1)
-    pag   = st.number_input("N pagadores/asegurados",1)
-    anual = delta*pop
-    df   = pd.DataFrame({"Año":[f"Año {i+1}" for i in range(int(yrs))],"Costo incremental":[anual]*int(yrs)})
-    df['Acumulado']=df['Costo incremental'].cumsum()
-    st.dataframe(df,hide_index=True,use_container_width=True)
-    st.success(f"Acumulado en {yrs} años: U.M. {df['Acumulado'].iloc[-1]:,.0f}")
-    if pag>0: st.info(f"Impacto por pagador: U.M. {anual/pag:,.2f}")
-    fig,ax=plt.subplots(); ax.bar(df['Año'],df['Costo incremental']); st.pyplot(fig)
-    descarga_csv(df,"BIA_resultados")
+    # **Nuevos campos**: costo de intervención actual y nueva
+    costo_actual = st.number_input("Costo intervención actual (UM)", min_value=0.0, step=1.0)
+    costo_nueva  = st.number_input("Costo intervención nueva (UM)",  min_value=0.0, step=1.0)
+    # Diferencia automática
+    delta = costo_nueva - costo_actual
+    st.write(f"**Δ Costo por paciente:** UM {delta:,.2f}")
+    
+    # Campos originales
+    pop = st.number_input("Población objetivo", 1, step=1)
+    yrs = st.number_input("Horizonte (años)",       1, step=1)
+    pag = st.number_input("N pagadores/asegurados", 1, step=1)
+    
+    anual = delta * pop
+    df = pd.DataFrame({
+        "Año": [f"Año {i+1}" for i in range(int(yrs))],
+        "Costo incremental": [anual] * int(yrs)
+    })
+    df["Acumulado"] = df["Costo incremental"].cumsum()
+    
+    st.dataframe(df, hide_index=True, use_container_width=True)
+    st.success(f"Acumulado en {yrs} años: UM {df['Acumulado'].iloc[-1]:,.2f}")
+    if pag > 0:
+        st.info(f"Impacto por pagador: UM {anual/pag:,.2f}")
+    
+    fig, ax = plt.subplots()
+    ax.bar(df["Año"], df["Costo incremental"])
+    st.pyplot(fig)
+    
+    descarga_csv(df, "BIA_resultados")
+
+
 
 # 3) ROI – Retorno sobre la Inversión
 elif analisis.startswith("3️⃣"):
