@@ -37,80 +37,74 @@ import io
 # 1) COI – Costo de la enfermedad 
 if analisis.startswith("1️⃣"):
     st.header("1️⃣ Costo de la Enfermedad (COI)")
+    # 1. Editor con columna de variación (%) por fila
     coi_df = st.data_editor(
         pd.DataFrame({
             "Categoría": [
-                "Directo médico", "Directo no médico", 
+                "Directo médico", "Directo no médico",
                 "Indirecto (productividad)", "Intangible"
             ],
-            "Costo anual": [0.0, 0.0, 0.0, 0.0]
+            "Costo anual":   [0.0, 0.0, 0.0, 0.0],
+            "Variación (%)": [20.0, 20.0, 20.0, 20.0]
         }),
         num_rows="dynamic",
         key="coi_tabla"
     )
-    # Validación de valores negativos
-    if (coi_df["Costo anual"] < 0).any():
-        st.error("Valores negativos no permitidos.")
+
+    # 2. Validaciones
+    if (coi_df["Costo anual"] < 0).any() or (coi_df["Variación (%)"] < 0).any():
+        st.error("No se permiten valores negativos en costos ni en variaciones.")
     else:
         total = coi_df["Costo anual"].sum()
         st.success(f"Costo total anual: US$ {total:,.2f}")
 
         if total > 0:
-            # Preparar datos para gráfico y tornado
-            df_chart = coi_df.sort_values("Costo anual", ascending=True).reset_index(drop=True)
-            max_val   = df_chart["Costo anual"].max()
-            inset     = max_val * 0.02
-            colors    = plt.cm.tab10(np.arange(len(df_chart)))
+            # 3. Preparar tabla de sensibilidad univariada (Tornado)
+            sens = []
+            for _, row in coi_df.iterrows():
+                cat  = row["Categoría"]
+                cost = row["Costo anual"]
+                pct  = row["Variación (%)"] / 100.0
+                more = cost * (1 + pct) - cost
+                less = cost * (1 - pct) - cost
+                sens.append({"Categoría": cat, "Menos": less, "Más": more})
 
-            # 1️⃣ Gráfico de barras horizontales
+            sens_df = (
+                pd.DataFrame(sens)
+                  .set_index("Categoría")
+                  .reindex(
+                      pd.Series(sens).apply(lambda x: abs(x["Más"]))
+                                             .sort_values()
+                                             .index
+                  )
+            )
+
+            # 4. Dibujar gráfico Tornado
             fig, ax = plt.subplots(figsize=(6, 4))
-            ax.barh(df_chart["Categoría"], df_chart["Costo anual"], color=colors)
-            ax.set_xlim(0, max_val + inset)
-            for idx, val in enumerate(df_chart["Costo anual"]):
-                ax.text(
-                    val - inset,
-                    idx,
-                    f"{val:,.2f}",
-                    va="center",
-                    ha="right",
-                    color="white",
-                    fontsize=10
-                )
-            ax.set_xlabel("Costo anual (US$)")
-            ax.set_title("Análisis de Costos – COI")
+            ax.barh(sens_df.index, sens_df["Menos"], color="steelblue", label="– Variación")
+            ax.barh(sens_df.index, sens_df["Más"],  color="salmon",     label="+ Variación")
+            ax.axvline(0, color="black", linewidth=0.8)
+            ax.set_xlabel("Cambio en costo anual (US$)")
+            ax.set_title("Análisis Tornado – COI")
+            ax.legend()
             fig.tight_layout()
             st.pyplot(fig)
 
-            # 2️⃣ Tornado: análisis de sensibilidad univariado
-            pct = st.slider("Variación tornado (%)", 0, 100, 20, step=5)
-            sens = []
-            for _, row in df_chart.iterrows():
-                cat  = row["Categoría"]
-                cost = row["Costo anual"]
-                up   = cost * (1 + pct/100)
-                down = cost * (1 - pct/100)
-                sens.append({
-                    "Categoría": cat,
-                    "Menos": down - cost,
-                    "Más":  up   - cost
-                })
-            sens_df = pd.DataFrame(sens).set_index("Categoría")
-            # Ordenar por impacto absoluto
-            sens_df = sens_df.reindex(sens_df["Más"].abs().sort_values().index)
-
-            fig2, ax2 = plt.subplots(figsize=(6, 4))
-            ax2.barh(sens_df.index, sens_df["Menos"], color="steelblue", label="– Variación")
-            ax2.barh(sens_df.index, sens_df["Más"],  color="salmon",     label="+ Variación")
-            ax2.axvline(0, color="black", linewidth=0.8)
-            ax2.set_xlabel("Cambio en costo anual (US$)")
-            ax2.set_title(f"Análisis Tornado (±{pct}%)")
-            ax2.legend()
-            fig2.tight_layout()
-            st.pyplot(fig2)
+            # 5. Descargar gráfico Tornado
+            buf = io.BytesIO()
+            fig.savefig(buf, format="png", bbox_inches="tight")
+            buf.seek(0)
+            st.download_button(
+                "📥 Descargar gráfico Tornado",
+                buf,
+                file_name="COI_tornado.png",
+                mime="image/png"
+            )
         else:
-            st.info("Introduce valores > 0 para graficar.")
+            st.info("Introduce valores mayores que cero para graficar.")
 
-    descarga_csv(coi_df, "COI_resultados")
+    # 6. Descargar tabla (sin la columna de variación)
+    descarga_csv(coi_df.drop(columns="Variación (%)"), "COI_resultados")
 
 
 # 2) BIA – Impacto Presupuestario
