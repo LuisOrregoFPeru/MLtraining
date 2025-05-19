@@ -206,43 +206,53 @@ elif analisis.startswith("7️⃣") or analisis.startswith("8️⃣"):
 
     # ----------------------- Dominancia & tablas ----------------------
     def dom_tables(df: pd.DataFrame):
-        # Ordenar por costo creciente y efectividad decreciente (regla NICE)
-        df_sorted = df.sort_values([
-            "Costo total",
-            f"{unidad}s",
-        ], ascending=[True, False]).reset_index(drop=True)
+        """Genera las tres tablas de dominancia (cruda, sin dominados,
+        sin ext. dominados) siguiendo Gray AM et al. 2011.
+        Evita KeyError cuando los índices no son consecutivos y
+        previene AttributeError al evaluar nulos."""
+
+        # 1. Ordenar: costo asc. y efectividad desc.
+        df_sorted = (
+            df.sort_values(["Costo total", f"{unidad}s"], ascending=[True, False])
+            .reset_index(drop=True)
+        )
         df_sorted["Dominancia"] = "Ninguna"
 
-        # ---------------- Dominancia fuerte ----------------
+        # 2. Dominancia fuerte
         for i in range(len(df_sorted)):
             for j in range(len(df_sorted)):
                 if i == j:
                     continue
-                cond1 = df_sorted.loc[j, "Costo total"] <= df_sorted.loc[i, "Costo total"]
-                cond2 = df_sorted.loc[j, f"{unidad}s"] >= df_sorted.loc[i, f"{unidad}s"]
-                better = (
+                cheaper = df_sorted.loc[j, "Costo total"] <= df_sorted.loc[i, "Costo total"]
+                more_eff = df_sorted.loc[j, f"{unidad}s"] >= df_sorted.loc[i, f"{unidad}s"]
+                strictly_better = (
                     df_sorted.loc[j, ["Costo total", f"{unidad}s"]]
                     .ne(df_sorted.loc[i, ["Costo total", f"{unidad}s"]])
                     .any()
                 )
-                if cond1 and cond2 and better:
+                if cheaper and more_eff and strictly_better:
                     df_sorted.loc[i, "Dominancia"] = "Fuerte"
                     break
 
-        # ---------------- Dominancia extendida ----------------
+        # 3. Dominancia extendida
         no_strong = (
             df_sorted[df_sorted["Dominancia"] == "Ninguna"].copy().reset_index(drop=True)
         )
-        no_strong["ΔCosto"] = no_strong["Costo total"].diff()
-        no_strong["ΔEfect"] = no_strong[f"{unidad}s"].diff()
-        no_strong["ICER"] = no_strong["ΔCosto"] / no_strong["ΔEfect"]
-        no_strong["ExtDominancia"] = "Ninguna"
+        if len(no_strong) >= 2:
+            no_strong["ΔCosto"] = no_strong["Costo total"].diff()
+            no_strong["ΔEfect"] = no_strong[f"{unidad}s"].diff()
+            no_strong["ICER"] = no_strong["ΔCosto"] / no_strong["ΔEfect"]
+            no_strong["ExtDominancia"] = "Ninguna"
 
-        for i in range(1, len(no_strong) - 1):
-            if pd.isna(no_strong.loc[i, "ICER"]) or pd.isna(no_strong.loc[i + 1, "ICER"]).any():
-                continue
-            if no_strong.loc[i, "ICER"] > no_strong.loc[i + 1, "ICER"]:
-                no_strong.loc[i, "ExtDominancia"] = "Extendida"
+            for i in range(1, len(no_strong) - 1):
+                ic_i = no_strong.loc[i, "ICER"]
+                ic_next = no_strong.loc[i + 1, "ICER"]
+                if pd.isna(ic_i) or pd.isna(ic_next):
+                    continue
+                if ic_i > ic_next:
+                    no_strong.loc[i, "ExtDominancia"] = "Extendida"
+        else:
+            no_strong["ExtDominancia"] = "Ninguna"
 
         final = (
             no_strong[no_strong["ExtDominancia"] == "Ninguna"].copy().reset_index(drop=True)
