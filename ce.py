@@ -90,17 +90,6 @@ if analisis.startswith("1️⃣"):
         else:
             st.info("Introduce valores > 0 para graficar.")
 
-            # Opción para descargar el gráfico
-            buf = io.BytesIO()
-            fig.savefig(buf, format="png", bbox_inches="tight")
-            buf.seek(0)
-            st.download_button(
-                label="📥 Descargar gráfico COI",
-                data=buf,
-                file_name="COI_tornado.png",
-                mime="image/png"
-            )
-
 # 2) BIA – Impacto Presupuestario
 elif analisis.startswith("2️⃣"):
     st.header("2️⃣ Impacto Presupuestario (BIA)")
