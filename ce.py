@@ -31,7 +31,7 @@ def descarga_csv(df: pd.DataFrame, nombre: str):
     csv = df.to_csv(index=False).encode("utf-8-sig")
     st.download_button("Descargar CSV", csv, file_name=f"{nombre}.csv", mime="text/csv")
 
-# 1) COI – Costo de la enfermedad
+# 1) COI – Costo de la enfermedad 
 if analisis.startswith("1️⃣"):
     st.header("1️⃣ Costo de la Enfermedad (COI)")
     coi_df = st.data_editor(
@@ -40,19 +40,32 @@ if analisis.startswith("1️⃣"):
                 "Directo médico", "Directo no médico", 
                 "Indirecto (productividad)", "Intangible"
             ],
-            "Costo anual": [0.0,0.0,0.0,0.0]
-        }), num_rows="dynamic", key="coi_tabla"
+            "Costo anual": [0.0, 0.0, 0.0, 0.0]
+        }),
+        num_rows="dynamic",
+        key="coi_tabla"
     )
-    if (coi_df["Costo anual"]<0).any():
+    # Validación de valores negativos
+    if (coi_df["Costo anual"] < 0).any():
         st.error("Valores negativos no permitidos.")
     else:
         total = coi_df["Costo anual"].sum()
         st.success(f"Costo total anual: US$ {total:,.2f}")
-        if total>0:
-            fig,ax=plt.subplots(figsize=(4,4)); ax.pie(coi_df['Costo anual'], labels=coi_df['Categoría'], autopct='%1.1f%%')
+
+        if total > 0:
+            # Gráfico de barras horizontales estilo tornado
+            df_chart = coi_df.sort_values("Costo anual", ascending=True)
+            fig, ax = plt.subplots(figsize=(6, 4))
+            ax.barh(df_chart["Categoría"], df_chart["Costo anual"])
+            ax.set_xlabel("Costo anual (US$)")
+            ax.set_title("Análisis de Costos – COI")
+            # Etiquetas de valor al final de cada barra
+            for idx, val in enumerate(df_chart["Costo anual"]):
+                ax.text(val + total * 0.01, idx, f"{val:,.2f}", va="center")
             st.pyplot(fig)
         else:
-            st.info("Introduce valores >0 para graficar.")
+            st.info("Introduce valores > 0 para graficar.")
+
     descarga_csv(coi_df, "COI_resultados")
 
 # 2) BIA – Impacto Presupuestario
