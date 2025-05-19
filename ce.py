@@ -53,15 +53,28 @@ if analisis.startswith("1️⃣"):
         st.success(f"Costo total anual: US$ {total:,.2f}")
 
         if total > 0:
-            # Gráfico de barras horizontales estilo tornado
+            # Preparar datos ordenados
             df_chart = coi_df.sort_values("Costo anual", ascending=True)
+            max_val = df_chart["Costo anual"].max()
+            offset = max_val * 0.02
+
+            # Colores diferenciados usando un colormap
+            colors = plt.cm.tab10(np.arange(len(df_chart)))
+
+            # Crear gráfico de barras horizontales
             fig, ax = plt.subplots(figsize=(6, 4))
-            ax.barh(df_chart["Categoría"], df_chart["Costo anual"])
-            ax.set_xlabel("Costo anual (US$)")
-            ax.set_title("Análisis de Costos – COI")
+            ax.barh(df_chart["Categoría"], df_chart["Costo anual"], color=colors)
+
+            # Ajustar límites para que las etiquetas no se salgan
+            ax.set_xlim(0, max_val + offset)
+
             # Etiquetas de valor al final de cada barra
             for idx, val in enumerate(df_chart["Costo anual"]):
-                ax.text(val + total * 0.01, idx, f"{val:,.2f}", va="center")
+                ax.text(val + offset, idx, f"{val:,.2f}", va="center")
+
+            ax.set_xlabel("Costo anual (US$)")
+            ax.set_title("Análisis de Costos – COI")
+            fig.tight_layout()
             st.pyplot(fig)
         else:
             st.info("Introduce valores > 0 para graficar.")
