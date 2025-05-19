@@ -1,5 +1,3 @@
-APP Suite de Evaluaciones econonómicas
-
 import streamlit as st
 import pandas as pd
 import numpy as np
