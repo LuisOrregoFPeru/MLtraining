@@ -59,7 +59,41 @@ if analisis.startswith("1️⃣"):
         st.success(f"Costo total anual: US$ {total:,.2f}")
 
         if total > 0:
-            # 3. Preparar tabla de sensibilidad univariada (Tornado)
+
+            # 3. Preparar datos
+            df_chart = coi_df.sort_values("Costo anual", ascending=True)
+            max_val   = df_chart["Costo anual"].max()
+            inset     = max_val * 0.02
+
+            # Colores diferenciados
+            colors = plt.cm.tab10(np.arange(len(df_chart)))
+
+            # Crear gráfico de barras horizontales
+            fig, ax = plt.subplots(figsize=(6, 4))
+            ax.barh(df_chart["Categoría"], df_chart["Costo anual"], color=colors)
+
+            # Ajustar límite derecho para que no se corten las barras
+            ax.set_xlim(0, max_val + inset)
+
+            # Etiquetas dentro de las barras
+            for idx, val in enumerate(df_chart["Costo anual"]):
+                ax.text(
+                    val - inset,                    # posición justo dentro de la barra
+                    idx, 
+                    f"{val:,.2f}", 
+                    va="center", 
+                    ha="right",                     # alineación a la derecha, dentro de la barra
+                    color="white", 
+                    fontsize=10
+                )
+
+            ax.set_xlabel("Costo anual (US$)")
+            ax.set_title("Análisis de Costos – COI")
+            fig.tight_layout()
+            st.pyplot(fig)
+                
+            
+            # 4. Preparar tabla de sensibilidad univariada (Tornado)
             sens = []
             for _, row in coi_df.iterrows():
                 cat  = row["Categoría"]
@@ -79,7 +113,7 @@ if analisis.startswith("1️⃣"):
                   )
             )
 
-            # 4. Dibujar gráfico Tornado
+            # 5. Dibujar gráfico Tornado
             fig, ax = plt.subplots(figsize=(6, 4))
             ax.barh(sens_df.index, sens_df["Menos"], color="steelblue", label="– Variación")
             ax.barh(sens_df.index, sens_df["Más"],  color="salmon",     label="+ Variación")
@@ -90,7 +124,7 @@ if analisis.startswith("1️⃣"):
             fig.tight_layout()
             st.pyplot(fig)
 
-            # 5. Descargar gráfico Tornado
+            # 6. Descargar gráfico Tornado
             buf = io.BytesIO()
             fig.savefig(buf, format="png", bbox_inches="tight")
             buf.seek(0)
