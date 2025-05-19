@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import io
 
 # ---------------------------------------------------------
 # SUITE COMPLETA DE EVALUACIONES ECONÓMICAS EN SALUD – Versión 1.2
@@ -53,43 +54,74 @@ if analisis.startswith("1️⃣"):
         st.success(f"Costo total anual: US$ {total:,.2f}")
 
         if total > 0:
-            # Preparar datos
+            # — Gráfico de barras horizontales —
             df_chart = coi_df.sort_values("Costo anual", ascending=True)
             max_val   = df_chart["Costo anual"].max()
             inset     = max_val * 0.02
 
-            # Colores diferenciados
-            colors = plt.cm.tab10(np.arange(len(df_chart)))
-
-            # Crear gráfico de barras horizontales
             fig, ax = plt.subplots(figsize=(6, 4))
-            ax.barh(df_chart["Categoría"], df_chart["Costo anual"], color=colors)
-
-            # Ajustar límite derecho para que no se corten las barras
+            ax.barh(df_chart["Categoría"], df_chart["Costo anual"])
             ax.set_xlim(0, max_val + inset)
-
-            # Etiquetas dentro de las barras
             for idx, val in enumerate(df_chart["Costo anual"]):
-                ax.text(
-                    val - inset,                    # posición justo dentro de la barra
-                    idx, 
-                    f"{val:,.2f}", 
-                    va="center", 
-                    ha="right",                     # alineación a la derecha, dentro de la barra
-                    color="white", 
-                    fontsize=10
-                )
-
+                ax.text(val - inset, idx, f"{val:,.2f}", va="center", ha="right", color="white")
             ax.set_xlabel("Costo anual (US$)")
             ax.set_title("Análisis de Costos – COI")
             fig.tight_layout()
             st.pyplot(fig)
+
+            # — Descargar gráfico de barras —
+            buf = io.BytesIO()
+            fig.savefig(buf, format="png", bbox_inches="tight")
+            buf.seek(0)
+            st.download_button(
+                "📥 Descargar gráfico COI", 
+                buf, 
+                file_name="COI_cost_chart.png", 
+                mime="image/png"
+            )
+
+            # — Análisis de sensibilidad Tornado —
+            pct = st.slider("Variación Tornado (%)", 0, 100, 20, step=1)
+            base = total
+            sens = []
+            for _, row in coi_df.iterrows():
+                cat  = row["Categoría"]
+                cost = row["Costo anual"]
+                plus_total  = base - cost + cost * (1 + pct/100)
+                minus_total = base - cost + cost * (1 - pct/100)
+                sens.append({
+                    "Categoría": cat,
+                    "Menos": minus_total - base,
+                    "Más":  plus_total  - base
+                })
+            sens_df = pd.DataFrame(sens).set_index("Categoría")
+            sens_df = sens_df.reindex(sens_df["Más"].abs().sort_values().index)
+
+            fig_t, ax_t = plt.subplots(figsize=(6, 4))
+            ax_t.barh(sens_df.index, sens_df["Menos"])
+            ax_t.barh(sens_df.index, sens_df["Más"])
+            ax_t.axvline(0, color="black", linewidth=0.8)
+            ax_t.set_xlabel("Cambio en costo anual (US$)")
+            ax_t.set_title(f"Análisis Tornado (±{pct}%)")
+            fig_t.tight_layout()
+            st.pyplot(fig_t)
+
+            # — Descargar gráfico Tornado —
+            buf2 = io.BytesIO()
+            fig_t.savefig(buf2, format="png", bbox_inches="tight")
+            buf2.seek(0)
+            st.download_button(
+                "📥 Descargar Tornado", 
+                buf2, 
+                file_name="COI_tornado.png", 
+                mime="image/png"
+            )
+
         else:
             st.info("Introduce valores > 0 para graficar.")
 
     descarga_csv(coi_df, "COI_resultados")
-
-
+    
 # 2) BIA – Impacto Presupuestario
 elif analisis.startswith("2️⃣"):
     st.header("2️⃣ Impacto Presupuestario (BIA)")
