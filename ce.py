@@ -173,14 +173,14 @@ elif analisis.startswith("2️⃣"):
     # 6. Mostrar tabla con separadores de miles
     df = pd.DataFrame({
         "Año":                [f"Año {i+1}" for i in range(int(yrs))],
-        "Casos con intervención actual":     uso_actual,
-        "Casos con intervención nueva":       uso_nueva,
+        "Casos intervención actual":     uso_actual,
+        "Casos intervención nueva":       uso_nueva,
         "Costo incremental":  cost_inc,
         "Acumulado":          acumulado
     })
     df_display = df.copy()
-    df_display["Casos actuales"]    = df_display["Casos actuales"].map("{:,.0f}".format)
-    df_display["Casos nuevos"]      = df_display["Casos nuevos"].map("{:,.0f}".format)
+    df_display["Casos intervención actual"]    = df_display["Casos actuales"].map("{:,.0f}".format)
+    df_display["Casos intevención nueva"]      = df_display["Casos nuevos"].map("{:,.0f}".format)
     df_display["Costo incremental"] = df_display["Costo incremental"].map("{:,.2f}".format)
     df_display["Acumulado"]         = df_display["Acumulado"].map("{:,.2f}".format)
     st.dataframe(df_display, hide_index=True, use_container_width=True)
@@ -191,8 +191,8 @@ elif analisis.startswith("2️⃣"):
 
     # 7. Gráfico de línea de tendencia de casos (con separadores)
     fig1, ax1 = plt.subplots()
-    ax1.plot(df["Año"], df["Casos actuales"], marker="o", linestyle="-", label="Casos actuales")
-    ax1.plot(df["Año"], df["Casos nuevos"],   marker="o", linestyle="--", label="Casos nuevos")
+    ax1.plot(df["Año"], df["Casos intervención actual"], marker="o", linestyle="-", label="Casos actuales")
+    ax1.plot(df["Año"], df["Casos intervención nueva"],   marker="o", linestyle="--", label="Casos nuevos")
     ax1.set_xlabel("Año")
     ax1.set_ylabel("Número de casos")
     ax1.set_title("Tendencia de Casos: Actual vs. Nueva")
