@@ -4,48 +4,57 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # ---------------------------------------------------------
-# Suite de Evaluaciones Económicas en Salud – Streamlit
+# SUITE COMPLETA DE EVALUACIONES ECONÓMICAS EN SALUD
 # Autor: Jarvis (ChatGPT)
-# Basado en Drabo et al. 2023 y Gray & Briggs 2019
+# Versión: 1.0 – mayo 2025
 # ---------------------------------------------------------
-# Permite elegir entre 9 tipos de análisis económicos y
-# despliega una interfaz específica para cada uno:
-#   • COI  – Análisis del costo de la enfermedad
-#   • BIA  – Análisis de impacto presupuestario
-#   • ROI  – Retorno sobre la inversión
-#   • CC   – Comparación de costos
-#   • CMA  – Minimización de costos
-#   • CCA  – Costo‑consecuencia
-#   • CEA  – Costo‑efectividad
-#   • CUA  – Costo‑utilidad (extiende CEA)
-#   • CBA  – Costo‑beneficio
-# Para CEA/CUA incorpora PSA y tornado con desglose de costos.
+# Cobertura
+#   1. COI   – Costo de la enfermedad
+#   2. BIA   – Impacto presupuestario
+#   3. ROI   – Retorno sobre la inversión
+#   4. CC    – Comparación de costos
+#   5. CMA   – Minimización de costos
+#   6. CCA   – Costo‑consecuencia
+#   7. CEA   – Costo‑efectividad
+#   8. CUA   – Costo‑utilidad
+#   9. CBA   – Costo‑beneficio
+# Funcionalidades generales
+#   • Tabla editable interactiva en cada módulo.
+#   • Cálculos automáticos y validaciones básicas.
+#   • Gráficos apropiados (pie, barras, plano CE, tornado, etc.).
+#   • Botón de descarga CSV del resultado resumido.
 # ---------------------------------------------------------
 
 st.set_page_config(page_title="Evaluaciones Económicas", layout="wide")
 
-st.title("Suite de Evaluaciones Económicas en Salud")
+st.title("🩺💲 Suite de Evaluaciones Económicas en Salud")
 
 TIPOS = [
-    "Análisis del Costo de la Enfermedad (COI)",
-    "Análisis de Impacto Presupuestario (BIA)",
-    "Retorno sobre la Inversión (ROI)",
-    "Comparación de Costos (CC)",
-    "Minimización de Costos (CMA)",
-    "Costo‑Consecuencia (CCA)",
-    "Costo‑Efectividad (CEA)",
-    "Costo‑Utilidad (CUA)",
-    "Costo‑Beneficio (CBA)",
+    "1️⃣ COI • Costo de la Enfermedad",
+    "2️⃣ BIA • Impacto Presupuestario",
+    "3️⃣ ROI • Retorno sobre la Inversión",
+    "4️⃣ CC  • Comparación de Costos",
+    "5️⃣ CMA • Minimización de Costos",
+    "6️⃣ CCA • Costo‑Consecuencia",
+    "7️⃣ CEA • Costo‑Efectividad",
+    "8️⃣ CUA • Costo‑Utilidad",
+    "9️⃣ CBA • Costo‑Beneficio",
 ]
 
-analisis = st.sidebar.selectbox("Selecciona el tipo de análisis", TIPOS)
+analisis = st.sidebar.radio("Selecciona el tipo de análisis", TIPOS)
+
+# Función utilitaria para descarga
+
+def descarga_csv(df: pd.DataFrame, nombre: str):
+    csv = df.to_csv(index=False).encode("utf-8-sig")
+    st.download_button("Descargar CSV", csv, file_name=f"{nombre}.csv", mime="text/csv")
 
 # ──────────────────────────────────────────────────────────
 # 1) COI – Costo de la enfermedad
 # ──────────────────────────────────────────────────────────
-if analisis == TIPOS[0]:
-    st.header("Análisis del Costo de la Enfermedad (COI)")
-    st.write("Ingresa las categorías de costo y su valor anual.")
+if analisis.startswith("1️⃣"):
+    st.header("1️⃣ Costo de la Enfermedad (COI)")
+    st.write("Desglosa los costos anuales por categoría para estimar la carga económica de la enfermedad.")
 
     coi_df = st.data_editor(
         pd.DataFrame(
@@ -56,267 +65,254 @@ if analisis == TIPOS[0]:
                     "Indirecto (productividad)",
                     "Intangible (dolor/ansiedad)",
                 ],
-                "Costo_anual": [0.0, 0.0, 0.0, 0.0],
+                "Costo anual": [0.0, 0.0, 0.0, 0.0],
             }
         ),
         num_rows="dynamic",
-        use_container_width=True,
         key="coi_tabla",
+        use_container_width=True,
     )
 
-    total = coi_df["Costo_anual"].sum()
-    st.success(f"**Costo total anual de la enfermedad:** US$ {total:,.2f}")
+    total = coi_df["Costo anual"].sum()
+    st.success(f"**Costo total anual:** US$ {total:,.2f}")
+
+    # Pie chart
+    fig, ax = plt.subplots(figsize=(5, 5))
+    ax.pie(coi_df["Costo anual"], labels=coi_df["Categoría"], autopct="%1.1f%%")
+    ax.set_title("Distribución de costos")
+    st.pyplot(fig)
+
+    descarga_csv(coi_df, "COI_resultados")
 
 # ──────────────────────────────────────────────────────────
 # 2) BIA – Impacto presupuestario
 # ──────────────────────────────────────────────────────────
-elif analisis == TIPOS[1]:
-    st.header("Análisis de Impacto Presupuestario (BIA)")
-
-    col1, col2, col3 = st.columns(3)
+elif analisis.startswith("2️⃣"):
+    st.header("2️⃣ Impacto Presupuestario (BIA)")
+    col1, col2, col3, col4 = st.columns(4)
     with col1:
         delta_cost = st.number_input("Δ Costo por paciente (US$)", value=1000.0, step=100.0)
     with col2:
         pop = st.number_input("Población objetivo", value=10000, step=1000)
     with col3:
+        años = st.number_input("Años de horizonte", value=3, step=1)
+    with col4:
         pagadores = st.number_input("N.º de pagadores/asegurados", value=500000, step=10000)
 
-    total_cost = delta_cost * pop
-    impacto = total_cost / pagadores if pagadores else 0
+    anual = delta_cost * pop
+    tabla = pd.DataFrame({
+        "Año": [f"Año {i+1}" for i in range(int(años))],
+        "Costo incremental": [anual]*(int(años)),
+    })
+    tabla["Acumulado"] = tabla["Costo incremental"].cumsum()
 
-    st.success(f"**Costo total del programa:** US$ {total_cost:,.0f}")
-    st.info(f"**Impacto por pagador:** US$ {impacto:,.2f}")
-    st.caption("El horizonte temporal debe corresponder al periodo presupuestario (1‑3 años) y los costos no se descuentan.")
+    st.dataframe(tabla, use_container_width=True, hide_index=True)
+    st.success(f"**Costo acumulado ({años} años):** US$ {tabla['Acumulado'].iloc[-1]:,.0f}")
+    impacto = anual / pagadores if pagadores else 0
+    st.info(f"**Impacto anual por pagador:** US$ {impacto:,.2f}")
+
+    fig, ax = plt.subplots()
+    ax.bar(tabla["Año"], tabla["Costo incremental"])
+    ax.set_ylabel("Costo (US$)")
+    st.pyplot(fig)
+
+    descarga_csv(tabla, "BIA_resultados")
 
 # ──────────────────────────────────────────────────────────
 # 3) ROI – Retorno sobre la inversión
 # ──────────────────────────────────────────────────────────
-elif analisis == TIPOS[2]:
-    st.header("Retorno sobre la Inversión (ROI)")
+elif analisis.startswith("3️⃣"):
+    st.header("3️⃣ Retorno sobre la Inversión (ROI)")
     col1, col2 = st.columns(2)
     with col1:
         costo_inv = st.number_input("Costo de la inversión (US$)", value=50000.0, step=1000.0)
     with col2:
         beneficio = st.number_input("Beneficio monetario (US$)", value=70000.0, step=1000.0)
 
-    roi = ((beneficio - costo_inv) / costo_inv) * 100 if costo_inv else 0
-    st.success(f"**ROI:** {roi:,.2f}%")
-    st.caption("Un ROI positivo indica una inversión rentable.")
+    roi_pct = ((beneficio - costo_inv) / costo_inv) * 100 if costo_inv else 0
+    st.success(f"**ROI:** {roi_pct:,.2f}%")
+
+    fig, ax = plt.subplots()
+    ax.bar(["Costo", "Beneficio"], [costo_inv, beneficio], color=["#d62728", "#2ca02c"])
+    ax.set_ylabel("US$")
+    st.pyplot(fig)
 
 # ──────────────────────────────────────────────────────────
-# 4) Comparación de Costos (CC)
+# 4) CC – Comparación de Costos
 # ──────────────────────────────────────────────────────────
-elif analisis == TIPOS[3]:
-    st.header("Comparación de Costos (CC)")
-
+elif analisis.startswith("4️⃣"):
+    st.header("4️⃣ Comparación de Costos (CC)")
     cc_df = st.data_editor(
         pd.DataFrame({"Alternativa": ["A", "B"], "Costo": [1000.0, 1200.0]}),
         num_rows="dynamic",
-        use_container_width=True,
         key="cc_tabla",
+        use_container_width=True,
     )
-
-    comparador = cc_df.loc[0, "Costo"] if not cc_df.empty else 0
-    diffs = cc_df["Costo"] - comparador
-    cc_df["ΔCosto vs. Alt.0"] = diffs
-    st.dataframe(cc_df, use_container_width=True)
+    base = cc_df.iloc[0]["Costo"] if not cc_df.empty else 0
+    cc_df["ΔCosto vs. Base"] = cc_df["Costo"] - base
+    st.dataframe(cc_df, use_container_width=True, hide_index=True)
+    descarga_csv(cc_df, "CC_resultados")
 
 # ──────────────────────────────────────────────────────────
-# 5) CMA – Minimización de costos
+# 5) CMA – Minimización de Costos
 # ──────────────────────────────────────────────────────────
-elif analisis == TIPOS[4]:
-    st.header("Minimización de Costos (CMA)")
-
+elif analisis.startswith("5️⃣"):
+    st.header("5️⃣ Minimización de Costos (CMA)")
     cma_df = st.data_editor(
         pd.DataFrame({"Alternativa": ["A", "B"], "Costo": [1000.0, 1200.0]}),
         num_rows="dynamic",
-        use_container_width=True,
         key="cma_tabla",
+        use_container_width=True,
     )
-
-    min_row = cma_df.loc[cma_df["Costo"].idxmin()] if not cma_df.empty else None
-    if min_row is not None:
-        st.success(f"**Alternativa de menor costo:** {min_row['Alternativa']} (US$ {min_row['Costo']:,.2f})")
+    if not cma_df.empty:
+        min_row = cma_df.loc[cma_df["Costo"].idxmin()]
+        st.success(f"**Opción más económica:** {min_row['Alternativa']} – US$ {min_row['Costo']:,.2f}")
+    descarga_csv(cma_df, "CMA_resultados")
 
 # ──────────────────────────────────────────────────────────
 # 6) CCA – Costo‑consecuencia
 # ──────────────────────────────────────────────────────────
-elif analisis == TIPOS[5]:
-    st.header("Costo‑Consecuencia (CCA)")
-    st.write("Lista cada alternativa, su costo y los resultados clínicos/naturales relevantes.")
+elif analisis.startswith("6️⃣"):
+    st.header("6️⃣ Costo‑Consecuencia (CCA)")
+    st.write("Añade las distintas consecuencias en columnas independientes.")
 
     cca_df = st.data_editor(
-        pd.DataFrame({"Alternativa": ["A"], "Costo": [1000.0], "Resultado_1": [50]}),
+        pd.DataFrame({"Alternativa": ["A"], "Costo": [1000.0], "Curaciones": [50]}),
         num_rows="dynamic",
-        use_container_width=True,
         key="cca_tabla",
+        use_container_width=True,
     )
-    st.dataframe(cca_df, use_container_width=True)
-    st.caption("El CCA no pondera los resultados; la interpretación queda al decisor.")
+    st.dataframe(cca_df, use_container_width=True, hide_index=True)
+    descarga_csv(cca_df, "CCA_resultados")
 
 # ──────────────────────────────────────────────────────────
-# 7‑8) CEA / CUA – Cost‑effectiveness & Cost‑utility
-#     Incluye PSA y Tornado con desglose de costos
+# 7‑8) CEA / CUA – Costo‑efectividad y Costo‑utilidad
 # ──────────────────────────────────────────────────────────
-elif analisis in [TIPOS[6], TIPOS[7]]:
-    st.header(analisis)
+elif analisis.startswith("7️⃣") or analisis.startswith("8️⃣"):
+    tipo = "CEA" if analisis.startswith("7️⃣") else "CUA"
+    unidad = "Efect" if tipo == "CEA" else "QALY"
+    st.header(f"{analisis}")
 
-    # ----------------------- Tabla de tratamientos ----------------------
-    st.sidebar.subheader("Datos de tratamientos")
+    # ----------------------- Entrada tratamientos ----------------------
+    st.sidebar.subheader("Tratamientos & parámetros determinísticos")
     default_df = pd.DataFrame(
         {
-            "Tratamiento": ["Comparador", "Intervención"],
-            "Costo_total": [1000.0, 1500.0],
-            "Efectividad": [0.70, 0.85],
-            "SD_Costo": [100.0, 120.0],
-            "SD_Efect": [0.07, 0.08],
+            "Tratamiento": ["A (Base)", "B", "C", "D", "E"],
+            "Costo total": [0.0, 10000.0, 22000.0, 25000.0, 40000.0],
+            f"{unidad}s": [0.0, 0.40, 0.55, 0.50, 1.0],
         }
     )
+    tx_df = st.sidebar.data_editor(default_df, num_rows="dynamic", key="cea_tabla", use_container_width=True)
 
-    tx_df = st.sidebar.data_editor(
-        default_df,
-        num_rows="dynamic",
-        use_container_width=True,
-        key="cea_tabla",
-    )
+    # ----------------------- Dominancia & tablas ----------------------
+    def dom_tables(df: pd.DataFrame):
+        df_sorted = df.sort_values(["Costo total", f"{unidad}s"], ascending=[True, False]).reset_index(drop=True)
+        df_sorted["Dominancia"] = "Ninguna"
 
-    umbral = st.sidebar.number_input("Umbral λ (US$/ΔEfect)", value=5000.0, step=100.0)
-    n_iter = st.sidebar.slider("Iteraciones PSA", 100, 10000, 1000, 100)
+        # Fuerte dominancia
+        for i in range(len(df_sorted)):
+            for j in range(len(df_sorted)):
+                if i == j:
+                    continue
+                cond1 = df_sorted.loc[j, "Costo total"] <= df_sorted.loc[i, "Costo total"]
+                cond2 = df_sorted.loc[j, f"{unidad}s"] >= df_sorted.loc[i, f"{unidad}s"]
+                better = df_sorted.loc[j, ["Costo total", f"{unidad}s"]].ne(df_sorted.loc[i, ["Costo total", f"{unidad}s"]]).any()
+                if cond1 and cond2 and better:
+                    df_sorted.loc[i, "Dominancia"] = "Fuerte"
+                    break
+
+        no_strong = df_sorted[df_sorted["Dominancia"] == "Ninguna"].copy()
+        no_strong["ΔCosto"] = no_strong["Costo total"].diff()
+        no_strong["ΔEfect"] = no_strong[f"{unidad}s"].diff()
+        no_strong["ICER"] = no_strong["ΔCosto"] / no_strong["ΔEfect"]
+        no_strong["ExtDominancia"] = "Ninguna"
+        for i in range(1, len(no_strong) - 1):
+            if no_strong.loc[i, "ICER"] > no_strong.loc[i + 1, "ICER"]:
+                no_strong.loc[i, "ExtDominancia"] = "Extendida"
+        final = no_strong[no_strong["ExtDominancia"] == "Ninguna"].copy()
+        return df_sorted, no_strong, final
+
+    tab0, tab1, tab2 = dom_tables(tx_df)
+
+    tabs = st.tabs(["Cruda", "Sin dominados", "Sin ext. dominados"])
+    tablas = [tab0, tab1, tab2]
+    for t, df in zip(tabs, tablas):
+        with t:
+            df_show = df.copy()
+            df_show.columns = [col.replace(f"{unidad}s", f"Total {unidad}s") for col in df_show.columns]
+            st.dataframe(df_show, use_container_width=True, hide_index=True)
+            descarga_csv(df_show, f"{tipo}_tabla_{t.title()}")
+
+    # ----------------------- Gráfico incremental ----------------------
+    st.subheader("Frente de eficiencia incremental")
+    plot_df = tab0.copy()
+    plot_df["Clase"] = plot_df.apply(lambda r: "Dominado" if r["Dominancia"] == "Fuerte" else ("ExtDominado" if r.get("ExtDominancia", "Ninguna") == "Extendida" else "Eficiente"), axis=1)
+    styles = {"Eficiente": "o", "Dominado": "x", "ExtDominado": "^"}
+    colors = {"Eficiente": "black", "Dominado": "gray", "ExtDominado": "darkgray"}
+
+    figF, axF = plt.subplots()
+    axF.set_xlabel(f"{unidad}s")
+    axF.set_ylabel("Costo (US$)")
+
+    for _, row in plot_df.iterrows():
+        axF.scatter(row[f"{unidad}s"], row["Costo total"], marker=styles[row["Clase"]], color=colors[row["Clase"]])
+        axF.annotate(row["Tratamiento"], (row[f"{unidad}s"], row["Costo total"]), textcoords="offset points", xytext=(5, -7))
+
+    eff_pts = plot_df[plot_df["Clase"] == "Eficiente"].sort_values(f"{unidad}s")
+    axF.plot(eff_pts[f"{unidad}s"], eff_pts["Costo total"], linestyle="-", color="black")
+
+    for i in range(1, len(eff_pts)):
+        x0, y0 = eff_pts.iloc[i - 1][[f"{unidad}s", "Costo total"]]
+        x1, y1 = eff_pts.iloc[i][[f"{unidad}s", "Costo total"]]
+        icer = (y1 - y0) / (x1 - x0)
+        xm, ym = (x0 + x1) / 2, (y0 + y1) / 2
+        axF.plot([x0, x1], [y0, y1], linestyle="--", color="gray")
+        axF.annotate(f"{icer:,.0f}/{unidad}", (xm, ym), textcoords="offset points", xytext=(0, -15), ha="center")
+
+    st.pyplot(figF)
+
+    # ----------------------- Plano clásico ----------------------
+    st.subheader("Plano de Costo‑Efectividad vs. Umbral λ")
+    umbral = st.sidebar.number_input("Umbral λ", value=30000.0, step=1000.0)
+
+    figP, axP = plt.subplots()
+    axP.axhline(0, color="gray", linewidth=0.5)
+    axP.axvline(0, color="gray", linewidth=0.5)
+    x_line = np.linspace(-1, 1, 100)
+    axP.plot(x_line, umbral * x_line, linestyle="--", label="Umbral λ")
+    axP.set_xlabel(f"Δ{unidad}")
+    axP.set_ylabel("ΔCosto (US$)")
 
     base = tx_df.iloc[0]
-    resultados = []
-    for idx, row in tx_df.iterrows():
-        if idx == 0:
-            continue
-        d_c = row["Costo_total"] - base["Costo_total"]
-        d_e = row["Efectividad"] - base["Efectividad"]
-        icer = d_c / d_e if d_e != 0 else np.nan
-        resultados.append((row["Tratamiento"], d_c, d_e, icer))
-
-    res_df = pd.DataFrame(resultados, columns=["Tratamiento", "ΔCosto", "ΔEfectividad", "ICER"])
-    st.subheader("Resultados determinísticos")
-    st.dataframe(res_df, use_container_width=True)
-
-    # ----------------------- Plano determinístico ----------------------
-    fig1, ax1 = plt.subplots()
-    ax1.axhline(0, color="gray", linewidth=0.5)
-    ax1.axvline(0, color="gray", linewidth=0.5)
-    ax1.set_xlabel("ΔEfectividad")
-    ax1.set_ylabel("ΔCosto (US$)")
-
-    x_line = np.linspace(-0.3, 0.3, 100)
-    ax1.plot(x_line, umbral * x_line, linestyle="--", label=f"Umbral = {umbral:,.0f}")
-
-    for _, r in res_df.iterrows():
-        ax1.scatter(r["ΔEfectividad"], r["ΔCosto"])
-        ax1.annotate(r["Tratamiento"], (r["ΔEfectividad"], r["ΔCosto"]))
-
-    ax1.legend()
-    st.subheader("Plano de Costo‑Efectividad (determinístico)")
-    st.pyplot(fig1)
-
-    # ----------------------- PSA ----------------------
-    psa_points = {}
     for _, row in tx_df.iterrows():
-        cost_sim = np.random.normal(row["Costo_total"], row["SD_Costo"], n_iter)
-        eff_sim = np.random.normal(row["Efectividad"], row["SD_Efect"], n_iter)
-        psa_points[row["Tratamiento"]] = (cost_sim, eff_sim)
-
-    base_c_sim, base_e_sim = psa_points[base["Tratamiento"]]
-
-    fig2, ax2 = plt.subplots()
-    ax2.axhline(0, color="gray", linewidth=0.5)
-    ax2.axvline(0, color="gray", linewidth=0.5)
-    ax2.set_xlabel("ΔEfectividad")
-    ax2.set_ylabel("ΔCosto (US$)")
-    ax2.plot(x_line, umbral * x_line, linestyle="--", label="Umbral")
-
-    for name, (c_sim, e_sim) in psa_points.items():
-        if name == base["Tratamiento"]:
+        if row.name == 0:
             continue
-        ax2.scatter(e_sim - base_e_sim, c_sim - base_c_sim, alpha=0.05, s=10, label=name)
-
-    ax2.legend()
-    st.subheader("Plano de PSA")
-    st.pyplot(fig2)
-
-    # ----------------------- Tornado ----------------------
-    st.subheader("Diagrama Tornado – Desglose de Costos")
-    sel_tx = st.selectbox("Tratamiento a analizar", tx_df["Tratamiento"].tolist()[1:])
-
-    def make_cost_df(total):
-        return pd.DataFrame(
-            {
-                "Componente": [
-                    "Fijo directo",
-                    "Variable directo",
-                    "Fijo indirecto",
-                    "Variable indirecto",
-                    "Tangible",
-                    "Intangible",
-                ],
-                "Costo": [round(total / 6, 2)] * 6,
-            }
-        )
-
-    cost_key = f"costos_{sel_tx}"
-    if cost_key not in st.session_state:
-        total_tx = tx_df[tx_df["Tratamiento"] == sel_tx]["Costo_total"].iloc[0]
-        st.session_state[cost_key] = make_cost_df(total_tx)
-
-    desglose_df = st.data_editor(
-        st.session_state[cost_key],
-        num_rows="dynamic",
-        use_container_width=True,
-        key=cost_key,
-    )
-
-    total_desg = desglose_df["Costo"].sum()
-    if total_desg <= 0:
-        st.warning("Introduce valores positivos de costo para generar el tornado.")
-    else:
-        base_eff = base["Efectividad"]
-        eff_tx = tx_df[tx_df["Tratamiento"] == sel_tx]["Efectividad"].iloc[0]
-        sens = []
-        for _, comp in desglose_df.iterrows():
-            for pct in [-0.2, 0.2]:
-                nuevo_costo = total_desg + comp["Costo"] * pct
-                d_c = nuevo_costo - base["Costo_total"]
-                d_e = eff_tx - base_eff
-                icer_mod = d_c / d_e if d_e != 0 else np.nan
-                sens.append({
-                    "Variable": f"{comp['Componente']} {'-20%' if pct<0 else '+20%'}",
-                    "ICER": icer_mod,
-                })
-
-        torn_df = pd.DataFrame(sens)
-        torn_df["abs"] = torn_df["ICER"].abs()
-        torn_df = torn_df.sort_values("abs", ascending=True)
-
-        fig3, ax3 = plt.subplots()
-        ax3.barh(torn_df["Variable"], torn_df["ICER"], edgecolor="black")
-        ax3.set_xlabel("ICER modificado (US$/ΔEfect)")
-        st.pyplot(fig3)
+        d_c = row["Costo total"] - base["Costo total"]
+        d_e = row[f"{unidad}s"] - base[f"{unidad}s"]
+        axP.scatter(d_e, d_c)
+        axP.annotate(row["Tratamiento"], (d_e, d_c))
+    axP.legend()
+    st.pyplot(figP)
 
 # ──────────────────────────────────────────────────────────
 # 9) CBA – Costo‑beneficio
 # ──────────────────────────────────────────────────────────
 else:
-    st.header("Costo‑Beneficio (CBA)")
-    col1, col2 = st.columns(2)
-    with col1:
-        costo_prog = st.number_input("Costo de la intervención (US$)", value=100000.0, step=1000.0)
-    with col2:
-        beneficio_prog = st.number_input("Beneficio monetario (US$)", value=150000.0, step=1000.0)
+    st.header("9️⃣ Costo‑Beneficio (CBA)")
+    cba_df = st.data_editor(
+        pd.DataFrame({"Alternativa": ["A"], "Costo": [10000.0], "Beneficio": [15000.0]}),
+        num_rows="dynamic",
+        key="cba_tabla",
+        use_container_width=True,
+    )
+    cba_df["Beneficio neto"] = cba_df["Beneficio"] - cba_df["Costo"]
+    cba_df["Ratio B/C"] = cba_df["Beneficio"] / cba_df["Costo"]
+    st.dataframe(cba_df, use_container_width=True, hide_index=True)
 
-    beneficio_neto = beneficio_prog - costo_prog
-    ratio = beneficio_prog / costo_prog if costo_prog else np.nan
+    fig, ax = plt.subplots()
+    ax.bar(cba_df["Alternativa"], cba_df["Ratio B/C"])
+    ax.axhline(1, color="gray", linestyle="--")
+    ax.set_ylabel("Beneficio/Costo")
+    st.pyplot(fig)
+    descarga_csv(cba_df, "CBA_resultados")
 
-    st.success(f"**Beneficio monetario neto (BMN):** US$ {beneficio_neto:,.0f}")
-    st.info(f"**Ratio beneficio/costo:** {ratio:,.2f}")
-
-# ---------------------------------------------------------
-# Pie de página común
-# ---------------------------------------------------------
-
-st.caption("Aplicación educativa – versiones simplificadas de cada método. Consulte las guías NICE, Drummond 2005 y Gray & Briggs 2019 para implementaciones completas.")
