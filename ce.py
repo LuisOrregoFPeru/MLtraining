@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-import io
 
 # ---------------------------------------------------------
 # SUITE COMPLETA DE EVALUACIONES ECONÓMICAS EN SALUD – Versión 1.2
@@ -31,6 +30,7 @@ analisis = st.sidebar.radio("Selecciona el tipo de análisis", TIPOS)
 def descarga_csv(df: pd.DataFrame, nombre: str):
     csv = df.to_csv(index=False).encode("utf-8-sig")
     st.download_button("Descargar CSV", csv, file_name=f"{nombre}.csv", mime="text/csv")
+import io
 
 # 1) COI – Costo de la enfermedad 
 elif analisis.startswith("1️⃣"):
@@ -97,6 +97,7 @@ elif analisis.startswith("1️⃣"):
             st.info("Introduce valores > 0 para el costo anual.")
 
     descarga_csv(coi_df.drop(columns="Variación (%)"), "COI_resultados")
+
     
 # 2) BIA – Impacto Presupuestario
 elif analisis.startswith("2️⃣"):
