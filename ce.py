@@ -6,9 +6,9 @@ import matplotlib.pyplot as plt
 # ---------------------------------------------------------
 # SUITE COMPLETA DE EVALUACIONES ECONÓMICAS EN SALUD
 # Autor: Jarvis (ChatGPT)
-# Versión: 1.0 – mayo 2025
+# Versión: 1.1 – mayo 2025 (fix gráfico COI y validaciones adicionales)
 # ---------------------------------------------------------
-# Cobertura
+# Cobertura de análisis
 #   1. COI   – Costo de la enfermedad
 #   2. BIA   – Impacto presupuestario
 #   3. ROI   – Retorno sobre la inversión
@@ -73,14 +73,25 @@ if analisis.startswith("1️⃣"):
         use_container_width=True,
     )
 
-    total = coi_df["Costo anual"].sum()
-    st.success(f"**Costo total anual:** US$ {total:,.2f}")
+    # Validación de valores negativos
+    if (coi_df["Costo anual"] < 0).any():
+        st.error("Existen valores de costo negativos. Corríjalos para continuar.")
+    else:
+        total = coi_df["Costo anual"].sum()
+        st.success(f"**Costo total anual:** US$ {total:,.2f}")
 
-    # Pie chart
-    fig, ax = plt.subplots(figsize=(5, 5))
-    ax.pie(coi_df["Costo anual"], labels=coi_df["Categoría"], autopct="%1.1f%%")
-    ax.set_title("Distribución de costos")
-    st.pyplot(fig)
+        # Mostrar gráfico solo si hay valores positivos
+        if total > 0:
+            fig, ax = plt.subplots(figsize=(5, 5))
+            ax.pie(
+                coi_df["Costo anual"],
+                labels=coi_df["Categoría"],
+                autopct="%1.1f%%",
+            )
+            ax.set_title("Distribución de costos")
+            st.pyplot(fig)
+        else:
+            st.info("Introduzca valores mayores que cero para visualizar la distribución de costos.")
 
     descarga_csv(coi_df, "COI_resultados")
 
@@ -102,7 +113,7 @@ elif analisis.startswith("2️⃣"):
     anual = delta_cost * pop
     tabla = pd.DataFrame({
         "Año": [f"Año {i+1}" for i in range(int(años))],
-        "Costo incremental": [anual]*(int(años)),
+        "Costo incremental": [anual] * int(años),
     })
     tabla["Acumulado"] = tabla["Costo incremental"].cumsum()
 
@@ -176,169 +187,4 @@ elif analisis.startswith("6️⃣"):
     st.header("6️⃣ Costo‑Consecuencia (CCA)")
     st.write("Añade las distintas consecuencias en columnas independientes.")
 
-    cca_df = st.data_editor(
-        pd.DataFrame({"Alternativa": ["A"], "Costo": [1000.0], "Curaciones": [50]}),
-        num_rows="dynamic",
-        key="cca_tabla",
-        use_container_width=True,
-    )
-    st.dataframe(cca_df, use_container_width=True, hide_index=True)
-    descarga_csv(cca_df, "CCA_resultados")
-
-# ──────────────────────────────────────────────────────────
-# 7‑8) CEA / CUA – Costo‑efectividad y Costo‑utilidad
-# ──────────────────────────────────────────────────────────
-elif analisis.startswith("7️⃣") or analisis.startswith("8️⃣"):
-    tipo = "CEA" if analisis.startswith("7️⃣") else "CUA"
-    unidad = "Efect" if tipo == "CEA" else "QALY"
-    st.header(f"{analisis}")
-
-    # ----------------------- Entrada tratamientos ----------------------
-    st.sidebar.subheader("Tratamientos & parámetros determinísticos")
-    default_df = pd.DataFrame(
-        {
-            "Tratamiento": ["A (Base)", "B", "C", "D", "E"],
-            "Costo total": [0.0, 10000.0, 22000.0, 25000.0, 40000.0],
-            f"{unidad}s": [0.0, 0.40, 0.55, 0.50, 1.0],
-        }
-    )
-    tx_df = st.sidebar.data_editor(default_df, num_rows="dynamic", key="cea_tabla", use_container_width=True)
-
-    # ----------------------- Dominancia & tablas ----------------------
-    def dom_tables(df: pd.DataFrame):
-        """Genera las tres tablas de dominancia (cruda, sin dominados,
-        sin ext. dominados) siguiendo Gray AM et al. 2011.
-        Evita KeyError cuando los índices no son consecutivos y
-        previene AttributeError al evaluar nulos."""
-
-        # 1. Ordenar: costo asc. y efectividad desc.
-        df_sorted = (
-            df.sort_values(["Costo total", f"{unidad}s"], ascending=[True, False])
-            .reset_index(drop=True)
-        )
-        df_sorted["Dominancia"] = "Ninguna"
-
-        # 2. Dominancia fuerte
-        for i in range(len(df_sorted)):
-            for j in range(len(df_sorted)):
-                if i == j:
-                    continue
-                cheaper = df_sorted.loc[j, "Costo total"] <= df_sorted.loc[i, "Costo total"]
-                more_eff = df_sorted.loc[j, f"{unidad}s"] >= df_sorted.loc[i, f"{unidad}s"]
-                strictly_better = (
-                    df_sorted.loc[j, ["Costo total", f"{unidad}s"]]
-                    .ne(df_sorted.loc[i, ["Costo total", f"{unidad}s"]])
-                    .any()
-                )
-                if cheaper and more_eff and strictly_better:
-                    df_sorted.loc[i, "Dominancia"] = "Fuerte"
-                    break
-
-        # 3. Dominancia extendida
-        no_strong = (
-            df_sorted[df_sorted["Dominancia"] == "Ninguna"].copy().reset_index(drop=True)
-        )
-        if len(no_strong) >= 2:
-            no_strong["ΔCosto"] = no_strong["Costo total"].diff()
-            no_strong["ΔEfect"] = no_strong[f"{unidad}s"].diff()
-            no_strong["ICER"] = no_strong["ΔCosto"] / no_strong["ΔEfect"]
-            no_strong["ExtDominancia"] = "Ninguna"
-
-            for i in range(1, len(no_strong) - 1):
-                ic_i = no_strong.loc[i, "ICER"]
-                ic_next = no_strong.loc[i + 1, "ICER"]
-                if pd.isna(ic_i) or pd.isna(ic_next):
-                    continue
-                if ic_i > ic_next:
-                    no_strong.loc[i, "ExtDominancia"] = "Extendida"
-        else:
-            no_strong["ExtDominancia"] = "Ninguna"
-
-        final = (
-            no_strong[no_strong["ExtDominancia"] == "Ninguna"].copy().reset_index(drop=True)
-        )
-        return df_sorted, no_strong, final
-
-    tab0, tab1, tab2 = dom_tables(tx_df)
-
-    tabs = st.tabs(["Cruda", "Sin dominados", "Sin ext. dominados"])
-    tablas = [tab0, tab1, tab2]
-    for t, df in zip(tabs, tablas):
-        with t:
-            df_show = df.copy()
-            df_show.columns = [col.replace(f"{unidad}s", f"Total {unidad}s") for col in df_show.columns]
-            st.dataframe(df_show, use_container_width=True, hide_index=True)
-            descarga_csv(df_show, f"{tipo}_tabla_{t.title()}")
-
-    # ----------------------- Gráfico incremental ----------------------
-    st.subheader("Frente de eficiencia incremental")
-    plot_df = tab0.copy()
-    plot_df["Clase"] = plot_df.apply(lambda r: "Dominado" if r["Dominancia"] == "Fuerte" else ("ExtDominado" if r.get("ExtDominancia", "Ninguna") == "Extendida" else "Eficiente"), axis=1)
-    styles = {"Eficiente": "o", "Dominado": "x", "ExtDominado": "^"}
-    colors = {"Eficiente": "black", "Dominado": "gray", "ExtDominado": "darkgray"}
-
-    figF, axF = plt.subplots()
-    axF.set_xlabel(f"{unidad}s")
-    axF.set_ylabel("Costo (US$)")
-
-    for _, row in plot_df.iterrows():
-        axF.scatter(row[f"{unidad}s"], row["Costo total"], marker=styles[row["Clase"]], color=colors[row["Clase"]])
-        axF.annotate(row["Tratamiento"], (row[f"{unidad}s"], row["Costo total"]), textcoords="offset points", xytext=(5, -7))
-
-    eff_pts = plot_df[plot_df["Clase"] == "Eficiente"].sort_values(f"{unidad}s")
-    axF.plot(eff_pts[f"{unidad}s"], eff_pts["Costo total"], linestyle="-", color="black")
-
-    for i in range(1, len(eff_pts)):
-        x0, y0 = eff_pts.iloc[i - 1][[f"{unidad}s", "Costo total"]]
-        x1, y1 = eff_pts.iloc[i][[f"{unidad}s", "Costo total"]]
-        icer = (y1 - y0) / (x1 - x0)
-        xm, ym = (x0 + x1) / 2, (y0 + y1) / 2
-        axF.plot([x0, x1], [y0, y1], linestyle="--", color="gray")
-        axF.annotate(f"{icer:,.0f}/{unidad}", (xm, ym), textcoords="offset points", xytext=(0, -15), ha="center")
-
-    st.pyplot(figF)
-
-    # ----------------------- Plano clásico ----------------------
-    st.subheader("Plano de Costo‑Efectividad vs. Umbral λ")
-    umbral = st.sidebar.number_input("Umbral λ", value=30000.0, step=1000.0)
-
-    figP, axP = plt.subplots()
-    axP.axhline(0, color="gray", linewidth=0.5)
-    axP.axvline(0, color="gray", linewidth=0.5)
-    x_line = np.linspace(-1, 1, 100)
-    axP.plot(x_line, umbral * x_line, linestyle="--", label="Umbral λ")
-    axP.set_xlabel(f"Δ{unidad}")
-    axP.set_ylabel("ΔCosto (US$)")
-
-    base = tx_df.iloc[0]
-    for _, row in tx_df.iterrows():
-        if row.name == 0:
-            continue
-        d_c = row["Costo total"] - base["Costo total"]
-        d_e = row[f"{unidad}s"] - base[f"{unidad}s"]
-        axP.scatter(d_e, d_c)
-        axP.annotate(row["Tratamiento"], (d_e, d_c))
-    axP.legend()
-    st.pyplot(figP)
-
-# ──────────────────────────────────────────────────────────
-# 9) CBA – Costo‑beneficio
-# ──────────────────────────────────────────────────────────
-else:
-    st.header("9️⃣ Costo‑Beneficio (CBA)")
-    cba_df = st.data_editor(
-        pd.DataFrame({"Alternativa": ["A"], "Costo": [10000.0], "Beneficio": [15000.0]}),
-        num_rows="dynamic",
-        key="cba_tabla",
-        use_container_width=True,
-    )
-    cba_df["Beneficio neto"] = cba_df["Beneficio"] - cba_df["Costo"]
-    cba_df["Ratio B/C"] = cba_df["Beneficio"] / cba_df["Costo"]
-    st.dataframe(cba_df, use_container_width=True, hide_index=True)
-
-    fig, ax = plt.subplots()
-    ax.bar(cba_df["Alternativa"], cba_df["Ratio B/C"])
-    ax.axhline(1, color="gray", linestyle="--")
-    ax.set_ylabel("Beneficio/Costo")
-    st.pyplot(fig)
-    descarga_csv(cba_df, "CBA_resultados")
+    cca
