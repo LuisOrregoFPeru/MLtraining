@@ -33,7 +33,7 @@ def descarga_csv(df: pd.DataFrame, nombre: str):
     st.download_button("Descargar CSV", csv, file_name=f"{nombre}.csv", mime="text/csv")
 
 # 1) COI – Costo de la enfermedad 
-elif analisis.startswith("1️⃣"):
+if analisis.startswith("1️⃣"):
     st.header("1️⃣ Costo de la Enfermedad (COI)")
     # 1. Editor con columna de variación (%) por fila
     coi_df = st.data_editor(
