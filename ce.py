@@ -30,8 +30,9 @@ analisis = st.sidebar.radio("Selecciona el tipo de análisis", TIPOS)
 def descarga_csv(df: pd.DataFrame, nombre: str):
     csv = df.to_csv(index=False).encode("utf-8-sig")
     st.download_button("Descargar CSV", csv, file_name=f"{nombre}.csv", mime="text/csv")
+
 # 1) COI – Costo de la enfermedad 
-elif analisis.startswith("1️⃣"):
+if analisis.startswith("1️⃣"):
     st.header("1️⃣ Costo de la Enfermedad (COI)")
     coi_df = st.data_editor(
         pd.DataFrame({
@@ -63,17 +64,19 @@ elif analisis.startswith("1️⃣"):
             # Crear gráfico de barras horizontales
             fig, ax = plt.subplots(figsize=(6, 4))
             ax.barh(df_chart["Categoría"], df_chart["Costo anual"], color=colors)
+
+            # Ajustar límite derecho para que no se corten las barras
             ax.set_xlim(0, max_val + inset)
 
             # Etiquetas dentro de las barras
             for idx, val in enumerate(df_chart["Costo anual"]):
                 ax.text(
-                    val - inset,
-                    idx,
-                    f"{val:,.2f}",
-                    va="center",
-                    ha="right",
-                    color="white",
+                    val - inset,                    # posición justo dentro de la barra
+                    idx, 
+                    f"{val:,.2f}", 
+                    va="center", 
+                    ha="right",                     # alineación a la derecha, dentro de la barra
+                    color="white", 
                     fontsize=10
                 )
 
@@ -81,22 +84,11 @@ elif analisis.startswith("1️⃣"):
             ax.set_title("Análisis de Costos – COI")
             fig.tight_layout()
             st.pyplot(fig)
-
-            # — Opción para descargar el gráfico —
-            buf = io.BytesIO()
-            fig.savefig(buf, format="png", bbox_inches="tight")
-            buf.seek(0)
-            st.download_button(
-                label="📥 Descargar gráfico COI",
-                data=buf,
-                file_name="COI_cost_chart.png",
-                mime="image/png"
-            )
-
         else:
             st.info("Introduce valores > 0 para graficar.")
 
     descarga_csv(coi_df, "COI_resultados")
+
 
     
 # 2) BIA – Impacto Presupuestario
