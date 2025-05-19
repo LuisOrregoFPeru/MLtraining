@@ -206,30 +206,47 @@ elif analisis.startswith("7️⃣") or analisis.startswith("8️⃣"):
 
     # ----------------------- Dominancia & tablas ----------------------
     def dom_tables(df: pd.DataFrame):
-        df_sorted = df.sort_values(["Costo total", f"{unidad}s"], ascending=[True, False]).reset_index(drop=True)
+        # Ordenar por costo creciente y efectividad decreciente (regla NICE)
+        df_sorted = df.sort_values([
+            "Costo total",
+            f"{unidad}s",
+        ], ascending=[True, False]).reset_index(drop=True)
         df_sorted["Dominancia"] = "Ninguna"
 
-        # Fuerte dominancia
+        # ---------------- Dominancia fuerte ----------------
         for i in range(len(df_sorted)):
             for j in range(len(df_sorted)):
                 if i == j:
                     continue
                 cond1 = df_sorted.loc[j, "Costo total"] <= df_sorted.loc[i, "Costo total"]
                 cond2 = df_sorted.loc[j, f"{unidad}s"] >= df_sorted.loc[i, f"{unidad}s"]
-                better = df_sorted.loc[j, ["Costo total", f"{unidad}s"]].ne(df_sorted.loc[i, ["Costo total", f"{unidad}s"]]).any()
+                better = (
+                    df_sorted.loc[j, ["Costo total", f"{unidad}s"]]
+                    .ne(df_sorted.loc[i, ["Costo total", f"{unidad}s"]])
+                    .any()
+                )
                 if cond1 and cond2 and better:
                     df_sorted.loc[i, "Dominancia"] = "Fuerte"
                     break
 
-        no_strong = df_sorted[df_sorted["Dominancia"] == "Ninguna"].copy()
+        # ---------------- Dominancia extendida ----------------
+        no_strong = (
+            df_sorted[df_sorted["Dominancia"] == "Ninguna"].copy().reset_index(drop=True)
+        )
         no_strong["ΔCosto"] = no_strong["Costo total"].diff()
         no_strong["ΔEfect"] = no_strong[f"{unidad}s"].diff()
         no_strong["ICER"] = no_strong["ΔCosto"] / no_strong["ΔEfect"]
         no_strong["ExtDominancia"] = "Ninguna"
+
         for i in range(1, len(no_strong) - 1):
+            if pd.isna(no_strong.loc[i, "ICER"]) or pd.isna(no_strong.loc[i + 1, "ICER"]).any():
+                continue
             if no_strong.loc[i, "ICER"] > no_strong.loc[i + 1, "ICER"]:
                 no_strong.loc[i, "ExtDominancia"] = "Extendida"
-        final = no_strong[no_strong["ExtDominancia"] == "Ninguna"].copy()
+
+        final = (
+            no_strong[no_strong["ExtDominancia"] == "Ninguna"].copy().reset_index(drop=True)
+        )
         return df_sorted, no_strong, final
 
     tab0, tab1, tab2 = dom_tables(tx_df)
@@ -315,4 +332,3 @@ else:
     ax.set_ylabel("Beneficio/Costo")
     st.pyplot(fig)
     descarga_csv(cba_df, "CBA_resultados")
-
