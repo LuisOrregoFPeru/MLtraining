@@ -101,10 +101,6 @@ if analisis.startswith("1️⃣"):
                 mime="image/png"
             )
 
-            else:
-            st.info("Introduce valores > 0 para graficar.")
-
-
 # 2) BIA – Impacto Presupuestario
 elif analisis.startswith("2️⃣"):
     st.header("2️⃣ Impacto Presupuestario (BIA)")
