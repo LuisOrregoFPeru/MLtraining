@@ -126,7 +126,7 @@ if analisis.startswith("1️⃣"):
 # 2) BIA – Impacto Presupuestario
 elif analisis.startswith("2️⃣"):
     st.header("2️⃣ Impacto Presupuestario (BIA)")
-    delta = st.number_input("Δ Costo por paciente (UM)",0)
+    delta = st.number_input("Δ Costo por paciente (U.M.)",0)
     pop   = st.number_input("Población objetivo",1)
     yrs   = st.number_input("Horizonte (años)",1)
     pag   = st.number_input("N pagadores/asegurados",1)
@@ -134,8 +134,8 @@ elif analisis.startswith("2️⃣"):
     df   = pd.DataFrame({"Año":[f"Año {i+1}" for i in range(int(yrs))],"Costo incremental":[anual]*int(yrs)})
     df['Acumulado']=df['Costo incremental'].cumsum()
     st.dataframe(df,hide_index=True,use_container_width=True)
-    st.success(f"Acumulado en {yrs} años: US$ {df['Acumulado'].iloc[-1]:,.0f}")
-    if pag>0: st.info(f"Impacto por pagador: UM {anual/pag:,.2f}")
+    st.success(f"Acumulado en {yrs} años: U.M. {df['Acumulado'].iloc[-1]:,.0f}")
+    if pag>0: st.info(f"Impacto por pagador: U.M. {anual/pag:,.2f}")
     fig,ax=plt.subplots(); ax.bar(df['Año'],df['Costo incremental']); st.pyplot(fig)
     descarga_csv(df,"BIA_resultados")
 
