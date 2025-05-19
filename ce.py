@@ -173,8 +173,8 @@ elif analisis.startswith("2️⃣"):
     # 6. Mostrar tabla con separadores de miles
     df = pd.DataFrame({
         "Año":                [f"Año {i+1}" for i in range(int(yrs))],
-        "Casos actuales":     uso_actual,
-        "Casos nuevos":       uso_nueva,
+        "Casos con intervención actual":     uso_actual,
+        "Casos con intervención nueva":       uso_nueva,
         "Costo incremental":  cost_inc,
         "Acumulado":          acumulado
     })
