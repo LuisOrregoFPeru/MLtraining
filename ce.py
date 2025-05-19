@@ -69,7 +69,25 @@ if analisis.startswith("1️⃣"):
             ax.set_xlim(0, max_val + inset)
 
             # Etiquetas dentro de las barras
-            for
+            for idx, val in enumerate(df_chart["Costo anual"]):
+                ax.text(
+                    val - inset,                    # posición justo dentro de la barra
+                    idx, 
+                    f"{val:,.2f}", 
+                    va="center", 
+                    ha="right",                     # alineación a la derecha, dentro de la barra
+                    color="white", 
+                    fontsize=10
+                )
+
+            ax.set_xlabel("Costo anual (US$)")
+            ax.set_title("Análisis de Costos – COI")
+            fig.tight_layout()
+            st.pyplot(fig)
+        else:
+            st.info("Introduce valores > 0 para graficar.")
+
+    descarga_csv(coi_df, "COI_resultados")
 
 
 # 2) BIA – Impacto Presupuestario
