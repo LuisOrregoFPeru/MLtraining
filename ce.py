@@ -125,60 +125,79 @@ if analisis.startswith("1️⃣"):
 # 2) BIA – Impacto Presupuestario
 elif analisis.startswith("2️⃣"):
     st.header("2️⃣ Impacto Presupuestario (BIA)")
-
-    # Costos de intervenciones
-    costo_actual = st.number_input("Costo intervención actual (UM)", min_value=0.0, step=1.0)
-    costo_nueva  = st.number_input("Costo intervención nueva (UM)",  min_value=0.0, step=1.0)
+    # 1. Costos de intervenciones
+    costo_actual = st.number_input(
+        "Costo intervención actual (UM)", min_value=0.0, step=1.0
+    )
+    costo_nueva = st.number_input(
+        "Costo intervención nueva (UM)", min_value=0.0, step=1.0
+    )
     delta = costo_nueva - costo_actual
-    st.write(f"**Δ Costo por paciente:** UM {delta:,.2f}")
+    st.write(f"**Δ Costo por caso tratado:** UM {delta:,.2f}")
 
-    # Población y horizontes
-    pop = st.number_input("Población objetivo", 1, step=1)
+    # 2. Población objetivo por prevalencia
+    pop_total = st.number_input(
+        "Población total", min_value=1, step=1
+    )
+    prevalencia = st.number_input(
+        "Prevalencia del evento (%)", 
+        min_value=0.0, max_value=100.0, value=100.0, step=0.1
+    )
+    pop_obj = pop_total * prevalencia / 100.0
+    st.write(f"Población objetivo (prevalencia): {pop_obj:.0f} ({prevalencia}%)")
+
+    # 3. Casos por año
+    casos_anio = st.number_input(
+        "Casos por año", min_value=0, step=1
+    )
+    st.write(f"Casos por año: {casos_anio}")
+
+    # 4. Horizonte y PIM
     yrs = st.number_input("Horizonte (años)", 1, step=1)
     pim = st.number_input("PIM (Presupuesto Inicial Modificado)", 1, step=1)
 
-    # 1️⃣ Sliders año a año para porcentaje de introducción
+    # 5. Sliders anuales de introducción (%)
     uptake_list = []
     for i in range(int(yrs)):
         pct = st.slider(
             f"Introducción año {i+1} (%)",
-            min_value=0, max_value=100, value=100, step=1, key=f"uptake_{i}"
+            min_value=0, max_value=100, value=100, step=1,
+            key=f"uptake_{i}"
         )
         uptake_list.append(pct)
 
-    # 2️⃣ Calcular uso y costo incremental por año
-    uso_nueva   = [pop * pct/100 for pct in uptake_list]
-    uso_actual  = [pop - un for un in uso_nueva]
+    # 6. Cálculos por año
+    uso_nueva   = [casos_anio * pct/100 for pct in uptake_list]
+    uso_actual  = [casos_anio - un for un in uso_nueva]
     cost_inc    = [delta * un for un in uso_nueva]
     acumulado   = np.cumsum(cost_inc)
 
-    # 3️⃣ Construir DataFrame de resultados
+    # 7. Resultado en DataFrame
     df = pd.DataFrame({
-        "Año":           [f"Año {i+1}" for i in range(int(yrs))],
-        "Uso actual":    uso_actual,
-        "Uso nueva":     uso_nueva,
-        "Costo incremental": cost_inc,
-        "Acumulado":     acumulado
+        "Año":                 [f"Año {i+1}" for i in range(int(yrs))],
+        "Casos actuales":      uso_actual,
+        "Casos nuevos":        uso_nueva,
+        "Costo incremental":   cost_inc,
+        "Acumulado":           acumulado
     })
 
-    # 4️⃣ Mostrar tabla y métricas
     st.dataframe(df, hide_index=True, use_container_width=True)
     st.success(f"Acumulado en {yrs} años: UM {acumulado[-1]:,.2f}")
     if pim > 0:
         st.info(f"Impacto por PIM: UM {acumulado[-1]/pim:,.2f}")
 
-    # 5️⃣ Gráfico de línea de tendencia de uso
+    # 8. Gráfico de tendencia de casos
     fig, ax = plt.subplots()
-    ax.plot(df["Año"], df["Uso actual"], marker="o", linestyle="-", label="Uso actual")
-    ax.plot(df["Año"], df["Uso nueva"],  marker="o", linestyle="--", label="Uso nueva")
+    ax.plot(df["Año"], df["Casos actuales"], marker="o", linestyle="-", label="Casos actuales")
+    ax.plot(df["Año"], df["Casos nuevos"],   marker="o", linestyle="--", label="Casos nuevos")
     ax.set_xlabel("Año")
-    ax.set_ylabel("Número de pacientes")
-    ax.set_title("Tendencia de Uso: Actual vs. Nueva")
+    ax.set_ylabel("Número de casos")
+    ax.set_title("Tendencia de Casos: Actual vs. Nueva")
     ax.legend()
     fig.tight_layout()
     st.pyplot(fig)
 
-    # 6️⃣ Gráfico de línea de tendencia de costos
+    # 9. Gráfico de tendencia de costos
     fig2, ax2 = plt.subplots()
     ax2.plot(df["Año"], df["Costo incremental"], marker="o", label="Costo incremental")
     ax2.plot(df["Año"], df["Acumulado"],        marker="o", label="Costo acumulado")
@@ -189,9 +208,8 @@ elif analisis.startswith("2️⃣"):
     fig2.tight_layout()
     st.pyplot(fig2)
 
-    # 7️⃣ Descargar resultados
+    # 10. Descargar resultados
     descarga_csv(df, "BIA_resultados")
-
 
 # 3) ROI – Retorno sobre la Inversión
 elif analisis.startswith("3️⃣"):
