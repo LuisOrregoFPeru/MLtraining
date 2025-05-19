@@ -160,13 +160,13 @@ elif analisis.startswith("2️⃣"):
     if pim > 0:
         st.info(f"Impacto por PIM: UM {anual/pim:,.2f}")
 
-    # Gráfico de tendencia: uso intervención actual vs nueva
-    labels = [f"Año {i+1}" for i in range(int(yrs))]
-    uso_actual = [pop_actual] * int(yrs)
-    uso_nueva  = [pop_nueva]  * int(yrs)
+    # Gráfico de línea de tendencia de uso
+    years = df["Año"]
     fig, ax = plt.subplots()
-    ax.plot(labels, uso_actual, marker="o", linestyle="-", label="Actual")
-    ax.plot(labels, uso_nueva,  marker="o", linestyle="--", label="Nueva")
+    ax.plot(years, [uso_actual]*len(years), marker="o", linestyle="-", label="Uso intervención actual")
+    ax.plot(years, [uso_nueva]*len(years),  marker="o", linestyle="--", label="Uso intervención nueva")
+    ax.set_xticks(years)
+    ax.set_xticklabels([f"Año {i}" for i in years])
     ax.set_xlabel("Año")
     ax.set_ylabel("Número de pacientes")
     ax.set_title("Tendencia de Uso: Intervención Actual vs. Nueva")
