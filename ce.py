@@ -56,39 +56,62 @@ if analisis.startswith("1️⃣"):
         st.success(f"Costo total anual: US$ {total:,.2f}")
 
         if total > 0:
-            # Preparar datos
-            df_chart = coi_df.sort_values("Costo anual", ascending=True)
+            # Preparar datos para gráfico y tornado
+            df_chart = coi_df.sort_values("Costo anual", ascending=True).reset_index(drop=True)
             max_val   = df_chart["Costo anual"].max()
             inset     = max_val * 0.02
+            colors    = plt.cm.tab10(np.arange(len(df_chart)))
 
-            # Colores diferenciados
-            colors = plt.cm.tab10(np.arange(len(df_chart)))
-
-            # Crear gráfico de barras horizontales
+            # 1️⃣ Gráfico de barras horizontales
             fig, ax = plt.subplots(figsize=(6, 4))
             ax.barh(df_chart["Categoría"], df_chart["Costo anual"], color=colors)
-
-            # Ajustar límite derecho para que no se corten las barras
             ax.set_xlim(0, max_val + inset)
-
-            # Etiquetas dentro de las barras
             for idx, val in enumerate(df_chart["Costo anual"]):
                 ax.text(
-                    val - inset,                    # posición justo dentro de la barra
-                    idx, 
-                    f"{val:,.2f}", 
-                    va="center", 
-                    ha="right",                     # alineación a la derecha, dentro de la barra
-                    color="white", 
+                    val - inset,
+                    idx,
+                    f"{val:,.2f}",
+                    va="center",
+                    ha="right",
+                    color="white",
                     fontsize=10
                 )
-
             ax.set_xlabel("Costo anual (US$)")
             ax.set_title("Análisis de Costos – COI")
             fig.tight_layout()
             st.pyplot(fig)
+
+            # 2️⃣ Tornado: análisis de sensibilidad univariado
+            pct = st.slider("Variación tornado (%)", 0, 100, 20, step=5)
+            sens = []
+            for _, row in df_chart.iterrows():
+                cat  = row["Categoría"]
+                cost = row["Costo anual"]
+                up   = cost * (1 + pct/100)
+                down = cost * (1 - pct/100)
+                sens.append({
+                    "Categoría": cat,
+                    "Menos": down - cost,
+                    "Más":  up   - cost
+                })
+            sens_df = pd.DataFrame(sens).set_index("Categoría")
+            # Ordenar por impacto absoluto
+            sens_df = sens_df.reindex(sens_df["Más"].abs().sort_values().index)
+
+            fig2, ax2 = plt.subplots(figsize=(6, 4))
+            ax2.barh(sens_df.index, sens_df["Menos"], color="steelblue", label="– Variación")
+            ax2.barh(sens_df.index, sens_df["Más"],  color="salmon",     label="+ Variación")
+            ax2.axvline(0, color="black", linewidth=0.8)
+            ax2.set_xlabel("Cambio en costo anual (US$)")
+            ax2.set_title(f"Análisis Tornado (±{pct}%)")
+            ax2.legend()
+            fig2.tight_layout()
+            st.pyplot(fig2)
         else:
             st.info("Introduce valores > 0 para graficar.")
+
+    descarga_csv(coi_df, "COI_resultados")
+
 
 # 2) BIA – Impacto Presupuestario
 elif analisis.startswith("2️⃣"):
