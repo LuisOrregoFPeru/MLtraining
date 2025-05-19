@@ -32,10 +32,8 @@ def descarga_csv(df: pd.DataFrame, nombre: str):
     csv = df.to_csv(index=False).encode("utf-8-sig")
     st.download_button("Descargar CSV", csv, file_name=f"{nombre}.csv", mime="text/csv")
 
-import io
-
 # 1) COI – Costo de la enfermedad 
-if analisis.startswith("1️⃣"):
+elif analisis.startswith("1️⃣"):
     st.header("1️⃣ Costo de la Enfermedad (COI)")
     # 1. Editor con columna de variación (%) por fila
     coi_df = st.data_editor(
@@ -59,86 +57,70 @@ if analisis.startswith("1️⃣"):
         st.success(f"Costo total anual: US$ {total:,.2f}")
 
         if total > 0:
+            # — Gráfico de barras horizontales original —
+            df_chart = coi_df.sort_values("Costo anual", ascending=True).reset_index(drop=True)
+            max_val = df_chart["Costo anual"].max()
+            inset   = max_val * 0.02
+            colors  = plt.cm.tab10(np.arange(len(df_chart)))
 
-            # 3. Preparar datos
-            df_chart = coi_df.sort_values("Costo anual", ascending=True)
-            max_val   = df_chart["Costo anual"].max()
-            inset     = max_val * 0.02
-
-            # Colores diferenciados
-            colors = plt.cm.tab10(np.arange(len(df_chart)))
-
-            # Crear gráfico de barras horizontales
             fig, ax = plt.subplots(figsize=(6, 4))
             ax.barh(df_chart["Categoría"], df_chart["Costo anual"], color=colors)
-
-            # Ajustar límite derecho para que no se corten las barras
             ax.set_xlim(0, max_val + inset)
-
-            # Etiquetas dentro de las barras
             for idx, val in enumerate(df_chart["Costo anual"]):
-                ax.text(
-                    val - inset,                    # posición justo dentro de la barra
-                    idx, 
-                    f"{val:,.2f}", 
-                    va="center", 
-                    ha="right",                     # alineación a la derecha, dentro de la barra
-                    color="white", 
-                    fontsize=10
-                )
-
+                ax.text(val - inset, idx, f"{val:,.2f}", va="center", ha="right", color="white")
             ax.set_xlabel("Costo anual (US$)")
             ax.set_title("Análisis de Costos – COI")
             fig.tight_layout()
             st.pyplot(fig)
-                
-            
-            # 4. Preparar tabla de sensibilidad univariada (Tornado)
+
+            # — Descarga del gráfico de barras —
+            buf1 = io.BytesIO()
+            fig.savefig(buf1, format="png", bbox_inches="tight")
+            buf1.seek(0)
+            st.download_button("📥 Descargar gráfico de barras", buf1, "COI_barras.png", "image/png")
+
+            # — Análisis Tornado con variaciones individuales —
             sens = []
             for _, row in coi_df.iterrows():
                 cat  = row["Categoría"]
                 cost = row["Costo anual"]
-                pct  = row["Variación (%)"] / 100.0
-                more = cost * (1 + pct) - cost
-                less = cost * (1 - pct) - cost
-                sens.append({"Categoría": cat, "Menos": less, "Más": more})
+                pct  = row["Variación (%)"] / 100
+                up   = cost * (1 + pct)
+                down = cost * (1 - pct)
+                sens.append({
+                    "Categoría": cat,
+                    "Menos": down - cost,    # negativo
+                    "Más":  up - cost        # positivo
+                })
 
-            sens_df = (
-                pd.DataFrame(sens)
-                  .set_index("Categoría")
-                  .reindex(
-                      pd.Series(sens).apply(lambda x: abs(x["Más"]))
-                                             .sort_values()
-                                             .index
-                  )
-            )
+            sens_df = pd.DataFrame(sens).set_index("Categoría")
+            # Ordenar por mayor magnitud de cambio
+            order = sens_df.abs().max(axis=1).sort_values(ascending=False).index
+            sens_df = sens_df.loc[order]
 
-            # 5. Dibujar gráfico Tornado
-            fig, ax = plt.subplots(figsize=(6, 4))
-            ax.barh(sens_df.index, sens_df["Menos"], color="steelblue", label="– Variación")
-            ax.barh(sens_df.index, sens_df["Más"],  color="salmon",     label="+ Variación")
-            ax.axvline(0, color="black", linewidth=0.8)
-            ax.set_xlabel("Cambio en costo anual (US$)")
-            ax.set_title("Análisis Tornado – COI")
-            ax.legend()
-            fig.tight_layout()
-            st.pyplot(fig)
+            # Dibujar tornado
+            fig2, ax2 = plt.subplots(figsize=(6, 4))
+            ax2.barh(sens_df.index, sens_df["Menos"], color="steelblue", label="– Variación")
+            ax2.barh(sens_df.index, sens_df["Más"],  color="salmon",     label="+ Variación")
+            ax2.axvline(0, color="black", linewidth=0.8)
+            ax2.set_xlabel("Cambio en costo anual (US$)")
+            ax2.set_title("Análisis Tornado – COI")
+            ax2.legend()
+            fig2.tight_layout()
+            st.pyplot(fig2)
 
-            # 6. Descargar gráfico Tornado
-            buf = io.BytesIO()
-            fig.savefig(buf, format="png", bbox_inches="tight")
-            buf.seek(0)
-            st.download_button(
-                "📥 Descargar gráfico Tornado",
-                buf,
-                file_name="COI_tornado.png",
-                mime="image/png"
-            )
+            # — Descarga del gráfico Tornado —
+            buf2 = io.BytesIO()
+            fig2.savefig(buf2, format="png", bbox_inches="tight")
+            buf2.seek(0)
+            st.download_button("📥 Descargar gráfico Tornado", buf2, "COI_tornado.png", "image/png")
+
         else:
             st.info("Introduce valores mayores que cero para graficar.")
 
-    # 6. Descargar tabla (sin la columna de variación)
+    # 3. Descargar datos (sin la columna de variación)
     descarga_csv(coi_df.drop(columns="Variación (%)"), "COI_resultados")
+
 
 
 # 2) BIA – Impacto Presupuestario
