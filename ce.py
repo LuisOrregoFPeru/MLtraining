@@ -99,10 +99,11 @@ if analisis.startswith("1️⃣"):
                 data=buf,
                 file_name="COI_tornado.png",
                 mime="image/png"
+            )
 
+            else:
+            st.info("Introduce valores > 0 para graficar.")
 
-
-    descarga_csv(coi_df, "COI_resultados")
 
 # 2) BIA – Impacto Presupuestario
 elif analisis.startswith("2️⃣"):
