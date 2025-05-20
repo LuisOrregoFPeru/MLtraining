@@ -264,7 +264,7 @@ elif analisis.startswith("2️⃣"):
     """)
     
     # 8. Métricas
-    st.success(f"Acumulado en {yrs} años: UM {acumulado[-1]:,.2f}")
+    st.success(f"Acumulado en {yrs} años: U.M. {acumulado[-1]:,.2f}")
     st.info(f"Impacto relativo final en PIM: {df['Impacto en PIM'].iloc[-1]:.2%}")
 
        # 9. Gráficos de tendencia
