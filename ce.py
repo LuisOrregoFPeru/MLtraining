@@ -103,15 +103,19 @@ if analisis.startswith("1️⃣"):
 
             # Dibujar tornado
             fig2, ax2 = plt.subplots(figsize=(6, 4))
-            ax2.barh(sens_df.index, sens_df["Menos"], color="steelblue", label="– Variación")
-            ax2.barh(sens_df.index, sens_df["Más"],  color="salmon",     label="+ Variación")
+            # Barras negativas en rojo
+            ax2.barh(sens_df.index, sens_df["Menos"], color="red",   label="– Variación")
+            # Barras positivas en verde
+            ax2.barh(sens_df.index, sens_df["Más"],  color="green", label="+ Variación")
             ax2.axvline(0, color="black", linewidth=0.8)
+            # Invertir el eje Y para que la barra de mayor magnitud quede arriba
+            ax2.invert_yaxis()
             ax2.set_xlabel("Cambio en costo anual (US$)")
             ax2.set_title("Análisis Tornado – COI")
             ax2.legend()
             fig2.tight_layout()
             st.pyplot(fig2)
-
+            
             # — Descarga del gráfico Tornado —
             buf2 = io.BytesIO()
             fig2.savefig(buf2, format="png", bbox_inches="tight")
@@ -122,8 +126,8 @@ if analisis.startswith("1️⃣"):
             st.markdown("""
             **Interpretación del Análisis de Tornado**  
             - Las barras más largas (hacia la derecha o hacia la izquierda) representan las categorías de costo cuya variación porcentual ocasiona el mayor impacto en el costo total anual.  
-            - La sección **“– Variación”** muestra cuánto disminuiría el costo si ese parámetro se reduce en el porcentaje indicado.  
-            - La sección **“+ Variación”** muestra cuánto aumentaría el costo si ese parámetro se incrementa en el mismo porcentaje.  
+            - La sección **“– Variación”** muestra cuánto disminuiría el costo total si ese parámetro se reduce en el porcentaje indicado.  
+            - La sección **“+ Variación”** muestra cuánto aumentaría el costo total si ese parámetro se incrementa en el mismo porcentaje.  
             - En la parte superior del gráfico están los factores de costo que, al variar, influirán más en tu presupuesto.  
             """)
         else:
