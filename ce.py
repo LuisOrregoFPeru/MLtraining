@@ -206,7 +206,7 @@ elif analisis.startswith("2️⃣"):
     ax2.plot(df["Año"], df["Costo incremental"], marker="o", label="Costo incremental")
     ax2.plot(df["Año"], df["Acumulado"],        marker="o", label="Costo acumulado")
     ax2.set_xlabel("Año")
-    ax2.set_ylabel("Costo (UM)")
+    ax2.set_ylabel("Costo (U.M.)")
     ax2.set_title("Tendencia de Costos Incremental y Acumulado")
     ax2.legend()
     ax2.yaxis.set_major_formatter(mticker.FuncFormatter(lambda x, pos: f"{x:,.2f}"))
