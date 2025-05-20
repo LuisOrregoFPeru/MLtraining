@@ -260,7 +260,7 @@ elif analisis.startswith("2️⃣"):
     - Acumulado = suma de todos los Costos incrementales hasta el año t  
     - PIM proyectado Año 0 = PIM histórico + Costo incremental Año 0  
     - PIM proyectado Año t ≥ 1 = (PIM proyectado del año anterior × (1 + tasa media)) + Costo incremental Año t  
-    - Impacto en PIM = Acumulado ÷ PIM proyectado (expresado en %)  
+    - Impacto en PIM = Acumulado / PIM proyectado (expresado en %)  
     """)
     
     # 8. Métricas
