@@ -152,7 +152,38 @@ elif analisis.startswith("2️⃣"):
 
     # 3. Horizonte y PIM
     yrs = st.number_input("Horizonte (años)", 1, step=1)
-    pim = st.number_input("PIM (Presupuesto Inicial Modificado)", 1, step=1)
+
+    # 3.1 PIM histórico últimos 5 años
+    st.subheader("PIM histórico (últimos 5 años)")
+    pim_hist = []
+    for i in range(5):
+        val = st.number_input(
+            f"PIM año {-5 + i + 1}",  # Año -4, -3, …, 0 relativo al año base
+            min_value=0.0, step=1.0,
+            key=f"pim_hist_{i}"
+        )
+        pim_hist.append(val)
+
+    # Calcular tasas de crecimiento anuales
+    growth_rates = []
+    for i in range(1, 5):
+        prev, curr = pim_hist[i-1], pim_hist[i]
+        rate = (curr - prev) / prev if prev > 0 else 0.0
+        growth_rates.append(rate)
+    avg_growth = sum(growth_rates) / len(growth_rates) if growth_rates else 0.0
+    st.write(f"**Tasa media de crecimiento anual PIM**: {avg_growth:.1%}")
+
+    # Proyección de PIM para los próximos 'yrs' años
+    last_pim = pim_hist[-1]
+    pim_proj = [last_pim * (1 + avg_growth) ** (i+1) for i in range(int(yrs))]
+    df_pim = pd.DataFrame({
+        "Año futuro": [f"Año +{i+1}" for i in range(int(yrs))],
+        "PIM proyectado": pim_proj
+    })
+    st.subheader("Proyección de PIM")
+    st.line_chart(df_pim.set_index("Año futuro"))
+    # — Ahora puedes usar pim_proj en lugar de un único 'pim' para calcular impacto —
+)    
 
     # 4. Sliders anuales de introducción (%)
     uptake_list = [
