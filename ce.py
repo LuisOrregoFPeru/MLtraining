@@ -251,7 +251,18 @@ elif analisis.startswith("2️⃣"):
         use_container_width=True
     )
 
-
+    st.markdown("---")  # separador horizontal
+    st.caption("""
+    **Nota:**  
+    - Casos intervención actual = Casos/año – Casos intervención nueva  
+    - Casos intervención nueva = Casos/año × % introducción  
+    - Costo incremental = Δ costo por caso × Casos intervención nueva  
+    - Acumulado = suma de todos los Costos incrementales hasta el año t  
+    - PIM proyectado Año 0 = PIM histórico + Costo incremental Año 0  
+    - PIM proyectado Año t ≥ 1 = (PIM proyectado del año anterior × (1 + tasa media)) + Costo incremental Año t  
+    - Impacto en PIM = Acumulado ÷ PIM proyectado (expresado en %)  
+    """)
+    
     # 8. Métricas
     st.success(f"Acumulado en {yrs} años: UM {acumulado[-1]:,.2f}")
     st.info(f"Impacto relativo final en PIM: {df['Impacto en PIM'].iloc[-1]:.2%}")
