@@ -240,7 +240,7 @@ elif analisis.startswith("2️⃣"):
     df_disp["Casos intervención actual"] = df_disp["Casos intervención actual"].map("{:,.0f}".format)
     df_disp["Casos intervención nueva"]  = df_disp["Casos intervención nueva"].map("{:,.0f}".format)
     df_disp["Costo incremental"]         = df_disp["Costo incremental"].map("{:,.2f}".format)
-    df_disp["Acumulado"]                 = df_disp["Acumulado"].map("{:,.2f}".format)
+    df_disp["Acumulado"]                 = df_disp["Acumulado Costo incremental"].map("{:,.2f}".format)
     df_disp["PIM proyectado"]            = df_disp["PIM proyectado"].map("{:,.2f}".format)
     df_disp["Impacto en PIM"]            = df_disp["Impacto en PIM"].map("{:.2%}".format)
 
@@ -257,9 +257,9 @@ elif analisis.startswith("2️⃣"):
     - Casos intervención actual = Casos/año – Casos intervención nueva  
     - Casos intervención nueva = Casos/año × % introducción  
     - Costo incremental = Δ costo por caso × Casos intervención nueva  
-    - Acumulado = suma de todos los Costos incrementales hasta el año t  
+    - Acumulado Costo incremental = suma de todos los Costos incrementales hasta el año t  
     - PIM proyectado Año 0 = PIM histórico + Costo incremental Año 0  
-    - PIM proyectado Año t ≥ 1 = (PIM proyectado del año anterior × (1 + tasa media)) + Costo incremental Año t  
+    - PIM proyectado Año t ≥ 1 = (PIM proyectado del año anterior × (1 + tasa media anual de crecimiento PIM)) + Costo incremental Año t  
     - Impacto en PIM = Acumulado / PIM proyectado (expresado en %)  
     """)
     
