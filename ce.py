@@ -183,7 +183,7 @@ elif analisis.startswith("2️⃣"):
     st.subheader("Proyección de PIM")
     st.line_chart(df_pim.set_index("Año futuro"))
     # — Ahora puedes usar pim_proj en lugar de un único 'pim' para calcular impacto —
-)    
+  
 
     # 4. Sliders anuales de introducción (%)
     uptake_list = [
