@@ -169,7 +169,7 @@ elif analisis.startswith("2️⃣"):
         )
         pim_hist.append(val)
 
-    # Calcular tasa media de crecimiento anual PIM
+      # 3. Calcular tasa media de crecimiento anual PIM
     growth_rates = []
     for i in range(1, 5):
         prev = pim_hist[i-1]
@@ -178,19 +178,6 @@ elif analisis.startswith("2️⃣"):
         growth_rates.append(rate)
     avg_growth = sum(growth_rates) / len(growth_rates) if growth_rates else 0.0
     st.write(f"**Tasa media anual de crecimiento PIM:** {avg_growth:.1%}")
-
-    # Proyección de PIM año a año (iterativa)
-    last_pim = pim_hist[-1]
-    pim_proj = []
-    for i, ci in enumerate(cost_inc):
-        if i == 0:
-            # Año actual: presupuesto histórico + costo incremental año 0
-            pim_i = last_pim + ci
-        else:
-            # Años siguientes: presupuesto del año anterior crece y luego sumas el incremental
-            pim_i = pim_proj[i-1] * (1 + avg_growth) + ci
-        pim_proj.append(pim_i)
-
 
     # 4. Sliders anuales de introducción (%), empezando por año actual
     uptake_list = []
@@ -209,18 +196,19 @@ elif analisis.startswith("2️⃣"):
     cost_inc   = [delta * un for un in uso_nueva]
     acumulado  = np.cumsum(cost_inc)
 
-   # 6. Proyección de PIM año a año (iterativa)
+    # 6. Proyección de PIM año a año (iterativa)
     last_pim = pim_hist[-1]
     pim_proj = []
     for i, ci in enumerate(cost_inc):
         if i == 0:
+            # Año actual: presupuesto histórico + costo incremental año 0
             pim_i = last_pim + ci
         else:
+            # Años siguientes: presupuesto del año anterior crece y luego sumas el incremental
             pim_i = pim_proj[i-1] * (1 + avg_growth) + ci
         pim_proj.append(pim_i)
 
-
-  # 7. Construir DataFrame con Impacto en PIM por año
+    # 7. Construir DataFrame con Impacto en PIM por año
     df = pd.DataFrame({
         "Año":                    [f"Año {i+1}" for i in range(int(yrs))],
         "Casos intervención actual": uso_actual,
@@ -233,6 +221,7 @@ elif analisis.startswith("2️⃣"):
             for ac, pp in zip(acumulado, pim_proj)
         ]
     })
+
        # 7. Mostrar tabla centrada con formatos (manteniendo nombres largos)
     df_disp = df.loc[:, [
         "Año",
