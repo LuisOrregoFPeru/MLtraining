@@ -207,7 +207,7 @@ elif analisis.startswith("2️⃣"):
 
     # 6. Construir DataFrame con Impacto en el PIM por año
     df = pd.DataFrame({
-        "Año":               [f"Año {i+1}" for i in range(int(yrs))],
+        "Año": ["Año actual" if i == 0 else f"Año +{i}" for i in range(int(yrs))],
         "Casos intervención actual":      uso_actual,
         "Casos intervención nueva":      uso_nueva,
         "Costo incremental": cost_inc,
