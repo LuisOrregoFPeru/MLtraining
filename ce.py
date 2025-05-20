@@ -164,30 +164,42 @@ elif analisis.startswith("2️⃣"):
         for i in range(int(yrs))
     ]
 
-    # 5. Cálculos por año
-    uso_nueva  = [casos_anio * pct/100 for pct in uptake_list]
-    uso_actual = [casos_anio - un for un in uso_nueva]
-    cost_inc   = [delta * un for un in uso_nueva]
-    acumulado  = np.cumsum(cost_inc)
+   # 5. Cálculos por año 
+uso_nueva  = [int(casos_anio * pct/100) for pct in uptake_list]  # siempre enteros
+uso_actual = [casos_anio - un for un in uso_nueva]
+cost_inc   = [delta * un for un in uso_nueva]
+acumulado  = np.cumsum(cost_inc)
 
-    # 6. Mostrar tabla con separadores de miles
-    df = pd.DataFrame({
-        "Año":                [f"Año {i+1}" for i in range(int(yrs))],
-        "Casos intervención actual":     uso_actual,
-        "Casos intervención nueva":       uso_nueva,
-        "Costo incremental":  cost_inc,
-        "Acumulado":          acumulado
-    })
-    df_display = df.copy()
-    df_display["Casos intervención actual"]    = df_display["Casos intervención actual"].map("{:,.0f}".format)
-    df_display["Casos intevención nueva"]      = df_display["Casos intervención nueva"].map("{:,.0f}".format)
-    df_display["Costo incremental"] = df_display["Costo incremental"].map("{:,.2f}".format)
-    df_display["Acumulado"]         = df_display["Acumulado"].map("{:,.2f}".format)
-    st.dataframe(df_display, hide_index=True, use_container_width=True)
+# 6. Mostrar tabla con separadores de miles y nueva columna “Impacto en el PIM”
+df = pd.DataFrame({
+    "Año":                          [f"Año {i+1}" for i in range(int(yrs))],
+    "Casos intervención actual":   uso_actual,
+    "Casos intervención nueva":    uso_nueva,
+    "Costo incremental":           cost_inc,
+    "Acumulado":                   acumulado,
+    "Impacto en el PIM":           [ci/pim if pim>0 else np.nan for ci in cost_inc]
+})
 
-    st.success(f"Acumulado en {yrs} años: UM {acumulado[-1]:,.2f}")
-    if pim > 0:
-        st.info(f"Impacto por PIM: UM {acumulado[-1]/pim:,.2f}")
+# Formato de presentación
+df_display = df.copy()
+df_display["Casos intervención actual"] = df_display["Casos intervención actual"].map("{:,.0f}".format)
+df_display["Casos intervención nueva"]  = df_display["Casos intervención nueva"].map("{:,.0f}".format)
+df_display["Costo incremental"]         = df_display["Costo incremental"].map("{:,.2f}".format)
+df_display["Acumulado"]                 = df_display["Acumulado"].map("{:,.2f}".format)
+df_display["Impacto en el PIM"]         = df_display["Impacto en el PIM"].map("{:,.4f}".format)
+
+# Alineación centrada usando Styler
+st.dataframe(
+    df_display.style
+      .set_properties(**{"text-align": "center"})
+      .set_table_styles([{"selector": "th", "props": [("text-align", "center")]}]),
+    use_container_width=True
+)
+
+st.success(f"Acumulado en {yrs} años: UM {acumulado[-1]:,.2f}")
+if pim > 0:
+    st.info(f"Impacto total por PIM: UM {acumulado[-1]/pim:,.2f}")
+
 
     # 7. Gráfico de línea de tendencia de casos (con separadores)
     fig1, ax1 = plt.subplots()
