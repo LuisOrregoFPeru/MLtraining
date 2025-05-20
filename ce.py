@@ -209,6 +209,7 @@ elif analisis.startswith("2️⃣"):
     cost_inc   = [delta * un for un in uso_nueva]
     acumulado  = np.cumsum(cost_inc)
 
+   # 6. Proyección de PIM año a año (iterativa)
     last_pim = pim_hist[-1]
     pim_proj = []
     for i, ci in enumerate(cost_inc):
@@ -219,17 +220,19 @@ elif analisis.startswith("2️⃣"):
         pim_proj.append(pim_i)
 
 
-    # 6. Construir DataFrame con Impacto en el PIM por año
-   df = pd.DataFrame({
+  # 7. Construir DataFrame con Impacto en PIM por año
+    df = pd.DataFrame({
         "Año":                    [f"Año {i+1}" for i in range(int(yrs))],
         "Casos intervención actual": uso_actual,
         "Casos intervención nueva":  uso_nueva,
         "Costo incremental":      cost_inc,
         "Acumulado":              acumulado,
         "PIM proyectado":         pim_proj,
-        "Impacto en PIM":         [ac/pp if pp>0 else np.nan for ac, pp in zip(acumulado, pim_proj)]
+        "Impacto en PIM":         [
+            ac/pp if pp>0 else np.nan
+            for ac, pp in zip(acumulado, pim_proj)
+        ]
     })
-
        # 7. Mostrar tabla centrada con formatos (manteniendo nombres largos)
     df_disp = df.loc[:, [
         "Año",
