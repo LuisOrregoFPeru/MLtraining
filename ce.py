@@ -250,26 +250,33 @@ elif analisis.startswith("2️⃣"):
     st.success(f"Acumulado en {yrs} años: UM {acumulado[-1]:,.2f}")
     st.info(f"Impacto relativo final en PIM: {df['Impacto en PIM'].iloc[-1]:.2%}")
 
-    # 9. Gráficos de tendencia
+       # 9. Gráficos de tendencia
     fig1, ax1 = plt.subplots()
     ax1.plot(df["Año"], df["Casos intervención actual"], marker="o", label="Casos actual")
     ax1.plot(df["Año"], df["Casos intervención nueva"], marker="o", linestyle="--", label="Casos nuevos")
+
+    # aquí no hay comas en estas líneas:
     ax1.set_xlabel("Año")
     ax1.set_ylabel("Número de casos")
     ax1.set_title("Tendencia de Casos")
     ax1.legend()
+
     ax1.yaxis.set_major_formatter(mticker.FuncFormatter(lambda x, _: f"{int(x):,}"))
     st.pyplot(fig1)
 
     fig2, ax2 = plt.subplots()
     ax2.plot(df["Año"], df["Costo incremental"], marker="o", label="Costo incremental")
-    ax2.plot(df["Año"], df["Acumulado"], marker="o", label="Costo acumulado")
-     ax2.set_xlabel("Año")
+    ax2.plot(df["Año"], df["Acumulado"],        marker="o", label="Costo acumulado")
+
+    # y aquí tampoco:
+    ax2.set_xlabel("Año")
     ax2.set_ylabel("Costo (U.M.)")
     ax2.set_title("Tendencia de Costos")
     ax2.legend()
+
     ax2.yaxis.set_major_formatter(mticker.FuncFormatter(lambda x, _: f"{x:,.2f}"))
     st.pyplot(fig2)
+
 
     # 10. Descargar resultados
     descarga_csv(df, "BIA_resultados")
