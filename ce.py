@@ -169,7 +169,7 @@ elif analisis.startswith("2️⃣"):
         )
         pim_hist.append(val)
 
-      # 3. Calcular tasa media de crecimiento anual PIM
+    # 3. Calcular tasa media de crecimiento anual PIM
     growth_rates = []
     for i in range(1, 5):
         prev = pim_hist[i-1]
@@ -177,7 +177,10 @@ elif analisis.startswith("2️⃣"):
         rate = (curr - prev) / prev if prev > 0 else 0.0
         growth_rates.append(rate)
     avg_growth = sum(growth_rates) / len(growth_rates) if growth_rates else 0.0
+    # redondear la tasa a un decimal (en porcentaje)
+    avg_growth = round(avg_growth, 3)
     st.write(f"**Tasa media anual de crecimiento PIM:** {avg_growth:.1%}")
+
 
     # 4. Sliders anuales de introducción (%), empezando por año actual
     uptake_list = []
