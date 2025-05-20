@@ -295,7 +295,7 @@ elif analisis.startswith("2️⃣"):
 
     fig2, ax2 = plt.subplots()
     ax2.plot(df["Año"], df["Costo incremental"], marker="o", label="Costo incremental")
-    ax2.plot(df["Año"], df["Acumulado"],        marker="o", label="Costo acumulado")
+    ax2.plot(df["Año"], df["Acumulado Costo Incremental"],        marker="o", label="Costo acumulado")
 
     # y aquí tampoco:
     ax2.set_xlabel("Año")
