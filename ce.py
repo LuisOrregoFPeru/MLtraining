@@ -205,8 +205,8 @@ elif analisis.startswith("2️⃣"):
     # 6. Construir DataFrame con Impacto en el PIM por año
     df = pd.DataFrame({
         "Año":               [f"Año {i+1}" for i in range(int(yrs))],
-        "Casos actual":      uso_actual,
-        "Casos nuevos":      uso_nueva,
+        "Casos intervención actual":      uso_actual,
+        "Casos intervención nueva":      uso_nueva,
         "Costo incremental": cost_inc,
         "Acumulado":         acumulado,
         "PIM proyectado":    pim_proj,
@@ -216,8 +216,8 @@ elif analisis.startswith("2️⃣"):
 
     # 7. Mostrar tabla centrada con formatos
     df_disp = df.copy()
-    df_disp["Casos actual"]      = df_disp["Casos actual"].map("{:,.0f}".format)
-    df_disp["Casos nuevos"]      = df_disp["Casos nuevos"].map("{:,.0f}".format)
+    df_disp["Casos actual"]      = df_disp["Casos intervención actual"].map("{:,.0f}".format)
+    df_disp["Casos nuevos"]      = df_disp["Casos intervención nueva"].map("{:,.0f}".format)
     df_disp["Costo incremental"] = df_disp["Costo incremental"].map("{:,.2f}".format)
     df_disp["Acumulado"]         = df_disp["Acumulado"].map("{:,.2f}".format)
     df_disp["PIM proyectado"]    = df_disp["PIM proyectado"].map("{:,.2f}".format)
@@ -236,8 +236,8 @@ elif analisis.startswith("2️⃣"):
 
     # 9. Gráficos de tendencia
     fig1, ax1 = plt.subplots()
-    ax1.plot(df["Año"], df["Casos actual"], marker="o", label="Casos actual")
-    ax1.plot(df["Año"], df["Casos nuevos"], marker="o", linestyle="--", label="Casos nuevos")
+    ax1.plot(df["Año"], df["Casos intervención actual"], marker="o", label="Casos actual")
+    ax1.plot(df["Año"], df["Casos intervención nueva"], marker="o", linestyle="--", label="Casos nuevos")
     ax1.set_xlabel("Año"), ax1.set_ylabel("Número de casos")
     ax1.set_title("Tendencia de Casos"), ax1.legend()
     ax1.yaxis.set_major_formatter(mticker.FuncFormatter(lambda x, _: f"{int(x):,}"))
