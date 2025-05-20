@@ -201,12 +201,11 @@ elif analisis.startswith("2️⃣"):
         uptake_list.append(pct)
 
     # 5. Cálculos por año
+    uso_nueva  = [math.ceil(casos_anio * pct/100) for pct in uptake_list]
+    uso_actual = [casos_anio - un for un in uso_nueva]
+    cost_inc   = [delta * un for un in uso_nueva]
+    acumulado  = np.cumsum(cost_inc)
 
-     # redondeo siempre al número entero superior
-     uso_nueva  = [math.ceil(casos_anio * pct/100) for pct in uptake_list]
-     uso_actual = [casos_anio - un for un in uso_nueva]
-     cost_inc   = [delta * un for un in uso_nueva]
-     acumulado  = np.cumsum(cost_inc)
 
     # 6. Construir DataFrame con Impacto en el PIM por año
     df = pd.DataFrame({
