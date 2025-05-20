@@ -155,13 +155,13 @@ elif analisis.startswith("2️⃣"):
 
     # 3.1 PIM histórico últimos 5 años
     st.subheader("PIM histórico (últimos 5 años)")
-     pim_hist = []
-     for i in range(5):
-        # etiquetas: año actual, año-1, año-2, año-3, año-4
-       label = "actual" if i == 0 else f"-{i}"
+    pim_hist = []
+    for i in range(5):
+        label = "actual" if i == 0 else f"-{i}"
         val = st.number_input(
             f"PIM año {label}",
-            min_value=0.0, step=1.0,
+            min_value=0.0,
+            step=1.0,
             key=f"pim_hist_{i}"
         )
         pim_hist.append(val)
