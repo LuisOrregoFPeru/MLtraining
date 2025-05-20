@@ -117,7 +117,15 @@ if analisis.startswith("1️⃣"):
             fig2.savefig(buf2, format="png", bbox_inches="tight")
             buf2.seek(0)
             st.download_button("📥 Descargar gráfico Tornado", buf2, "COI_tornado.png", "image/png")
-
+            
+            # — Interpretación del Análisis de Tornado —
+            st.markdown("""
+            **Interpretación del Análisis de Tornado**  
+            - Las barras más largas (hacia la derecha o hacia la izquierda) representan las categorías de costo cuya variación porcentual ocasiona el mayor impacto en el costo total anual.  
+            - La sección **“– Variación”** muestra cuánto disminuiría el costo si ese parámetro se reduce en el porcentaje indicado.  
+            - La sección **“+ Variación”** muestra cuánto aumentaría el costo si ese parámetro se incrementa en el mismo porcentaje.  
+            - En la parte superior del gráfico están los factores de costo que, al variar, influirán más en tu presupuesto.  
+            """)
         else:
             st.info("Introduce valores mayores que cero para graficar.")
 
