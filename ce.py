@@ -229,7 +229,7 @@ elif analisis.startswith("2️⃣"):
         "Casos intervención actual": uso_actual,
         "Casos intervención nueva":  uso_nueva,
         "Costo incremental":      cost_inc,
-        "Acumulado":              acumulado,
+        "Acumulado Costo Incremental":              acumulado,
         "PIM proyectado":         pim_proj,
         "Impacto en PIM":         [
             ac/pp if pp>0 else np.nan
@@ -243,7 +243,7 @@ elif analisis.startswith("2️⃣"):
         "Casos intervención actual",
         "Casos intervención nueva",
         "Costo incremental",
-        "Acumulado",
+        "Acumulado Costo Incremental",
         "PIM proyectado",
         "Impacto en PIM"
     ]].copy()
@@ -252,7 +252,7 @@ elif analisis.startswith("2️⃣"):
     df_disp["Casos intervención actual"] = df_disp["Casos intervención actual"].map("{:,.0f}".format)
     df_disp["Casos intervención nueva"]  = df_disp["Casos intervención nueva"].map("{:,.0f}".format)
     df_disp["Costo incremental"]         = df_disp["Costo incremental"].map("{:,.2f}".format)
-    df_disp["Acumulado"]                 = df_disp["Acumulado Costo incremental"].map("{:,.2f}".format)
+    df_disp["Acumulado Costo Incremental"]  = df_disp["Acumulado Costo Incremental"].map("{:,.2f}".format)
     df_disp["PIM proyectado"]            = df_disp["PIM proyectado"].map("{:,.2f}".format)
     df_disp["Impacto en PIM"]            = df_disp["Impacto en PIM"].map("{:.2%}".format)
 
