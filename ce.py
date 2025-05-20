@@ -157,60 +157,52 @@ elif analisis.startswith("2️⃣"):
     st.subheader("PIM histórico (últimos 5 años)")
     pim_hist = []
     for i in range(5):
-        val = st.number_input(
-            f"PIM año {-5 + i + 1}",  # Año -4, -3, …, 0 relativo al año base
-            min_value=0.0, step=1.0,
-            key=f"pim_hist_{i}"
-        )
+          val = st.number_input(f"PIM año {i+1}", min_value=0.0, step=1.0, key=f"pim_hist_{i}")
         pim_hist.append(val)
 
-    # Calcular tasas de crecimiento anuales
-    growth_rates = []
-    for i in range(1, 5):
-        prev, curr = pim_hist[i-1], pim_hist[i]
-        rate = (curr - prev) / prev if prev > 0 else 0.0
-        growth_rates.append(rate)
-    avg_growth = sum(growth_rates) / len(growth_rates) if growth_rates else 0.0
-    st.write(f"**Tasa media de crecimiento anual PIM**: {avg_growth:.1%}")
+    # Calcular tasa media de crecimiento
+    growth = [(pim_hist[i] - pim_hist[i-1]) / pim_hist[i-1]
+              if pim_hist[i-1] > 0 else 0.0
+              for i in range(1, 5)]
+    avg_growth = sum(growth) / len(growth) if growth else 0.0
+    st.write(f"**Tasa media anual PIM:** {avg_growth:.1%}")
 
-    # Proyección de PIM para los próximos 'yrs' años
+    # Proyección de PIM para los próximos yrs años
     last_pim = pim_hist[-1]
     pim_proj = [last_pim * (1 + avg_growth) ** (i+1) for i in range(int(yrs))]
-    df_pim = pd.DataFrame({
-        "Año futuro": [f"Año +{i+1}" for i in range(int(yrs))],
-        "PIM proyectado": pim_proj
-    })
     st.subheader("Proyección de PIM")
-    st.line_chart(df_pim.set_index("Año futuro"))
-    # — Ahora puedes usar pim_proj en lugar de un único 'pim' para calcular impacto —
+    st.line_chart(pd.DataFrame({
+        "PIM proyectado": pim_proj
+    }, index=[f"Año +{i+1}" for i in range(int(yrs))]))
 
     
-
-    # 4. Sliders anuales de introducción (%)
-    uptake_list = [
-        st.slider(
-            f"Introducción año {i+1} (%)", 
-            0, 100, 100, 1, 
+   # 4. Sliders anuales de introducción (%) – ahora sí antes de usarlos
+    uptake_list = []
+    for i in range(int(yrs)):
+        pct = st.slider(
+            f"Introducción año {i+1} (%)",
+            min_value=0, max_value=100, value=100, step=1,
             key=f"uptake_{i}"
         )
-        for i in range(int(yrs))
-    ]
+        uptake_list.append(pct)
 
-   # 5. Cálculos por año 
-uso_nueva  = [int(casos_anio * pct/100) for pct in uptake_list]  # siempre enteros
-uso_actual = [casos_anio - un for un in uso_nueva]
-cost_inc   = [delta * un for un in uso_nueva]
-acumulado  = np.cumsum(cost_inc)
 
-# 6. Mostrar tabla con separadores de miles y nueva columna “Impacto en el PIM”
-df = pd.DataFrame({
-    "Año":                          [f"Año {i+1}" for i in range(int(yrs))],
-    "Casos intervención actual":   uso_actual,
-    "Casos intervención nueva":    uso_nueva,
-    "Costo incremental":           cost_inc,
-    "Acumulado":                   acumulado,
-    "Impacto en el PIM":           [ci/pim if pim>0 else np.nan for ci in cost_inc]
-})
+   # 5. Cálculos por año usando uptake_list
+    uso_nueva  = [casos_anio * pct/100 for pct in uptake_list]
+    uso_actual = [casos_anio - un for un in uso_nueva]
+    cost_inc   = [delta * un for un in uso_nueva]
+    acumulado  = np.cumsum(cost_inc)
+
+# 6. Construir DataFrame con Impacto en PIM (por año)
+    df = pd.DataFrame({
+        "Año":                  [f"Año {i+1}" for i in range(int(yrs))],
+        "Casos actuales":       uso_actual,
+        "Casos nuevos":         uso_nueva,
+        "Costo incremental":    cost_inc,
+        "Acumulado":            acumulado,
+        "PIM proyectado":       pim_proj,
+        "Impacto relativo":     [ac / pp if pp>0 else np.nan
+                                 for ac, pp in zip(acumulado, pim_proj)]
 
 # Formato de presentación
 df_display = df.copy()
@@ -219,19 +211,23 @@ df_display["Casos intervención nueva"]  = df_display["Casos intervención nueva
 df_display["Costo incremental"]         = df_display["Costo incremental"].map("{:,.2f}".format)
 df_display["Acumulado"]                 = df_display["Acumulado"].map("{:,.2f}".format)
 df_display["Impacto en el PIM"]         = df_display["Impacto en el PIM"].map("{:,.4f}".format)
+ })
 
-# Alineación centrada usando Styler
-st.dataframe(
-    df_display.style
-      .set_properties(**{"text-align": "center"})
-      .set_table_styles([{"selector": "th", "props": [("text-align", "center")]}]),
-    use_container_width=True
-)
+# 8. Formatear y centrar los datos en la tabla
+    df_disp = df.copy()
+    df_disp["Casos actuales"]    = df_disp["Casos actuales"].map("{:,.0f}".format)
+    df_disp["Casos nuevos"]      = df_disp["Casos nuevos"].map("{:,.0f}".format)
+    df_disp["Costo incremental"] = df_disp["Costo incremental"].map("{:,.2f}".format)
+    df_disp["Acumulado"]         = df_disp["Acumulado"].map("{:,.2f}".format)
+    df_disp["PIM proyectado"]    = df_disp["PIM proyectado"].map("{:,.2f}".format)
+    df_disp["Impacto relativo"]  = df_disp["Impacto relativo"].map("{:.2%}".format)
 
-st.success(f"Acumulado en {yrs} años: UM {acumulado[-1]:,.2f}")
-if pim > 0:
-    st.info(f"Impacto total por PIM: UM {acumulado[-1]/pim:,.2f}")
-
+    st.dataframe(
+        df_disp.style
+               .set_properties(**{"text-align": "center"})
+               .set_table_styles([{"selector":"th","props":[("text-align","center")]}]),
+        use_container_width=True
+    )
 
     # 7. Gráfico de línea de tendencia de casos (con separadores)
     fig1, ax1 = plt.subplots()
