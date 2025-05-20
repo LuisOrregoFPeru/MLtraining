@@ -4,6 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import io
 import matplotlib.ticker as mticker
+import numpy as np
 import math
 
 # ---------------------------------------------------------
@@ -201,7 +202,7 @@ elif analisis.startswith("2️⃣"):
 
     # 5. Cálculos por año
 
-     # Redondear siempre hacia arriba a entero
+     # redondeo siempre al número entero superior
      uso_nueva  = [math.ceil(casos_anio * pct/100) for pct in uptake_list]
      uso_actual = [casos_anio - un for un in uso_nueva]
      cost_inc   = [delta * un for un in uso_nueva]
