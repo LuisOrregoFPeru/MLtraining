@@ -159,7 +159,8 @@ elif analisis.startswith("2️⃣"):
     st.subheader("PIM histórico (últimos 5 años)")
     pim_hist = []
     for i in range(5):
-        label = "actual" if i == 0 else f"-{i}"
+       offset = 4 - i
+        label = f"-{offset}" if offset > 0 else "actual"
         val = st.number_input(
             f"PIM año {label}",
             min_value=0.0,
@@ -172,10 +173,8 @@ elif analisis.startswith("2️⃣"):
     growth_rates = []
     for i in range(1, 5):
         prev, curr = pim_hist[i-1], pim_hist[i]
-        rate = (curr - prev) / prev if prev > 0 else 0.0
-        growth_rates.append(rate)
-    avg_growth = sum(growth_rates) / len(growth_rates) if growth_rates else 0.0
-    st.write(f"**Tasa media anual de crecimiento PIM:** {avg_growth:.1%}")
+    rate = (curr - prev) / prev if prev > 0 else 0.0
+    growth_rates.append(rate)
 
     # Proyección de PIM para los próximos 'yrs' años
     last_pim = pim_hist[-1]
