@@ -187,12 +187,13 @@ elif analisis.startswith("2️⃣"):
     ]
 
 
-    # 4. Sliders anuales de introducción (%)
+    # 4. Sliders anuales de introducción (%), empezando por año actual
     uptake_list = []
     for i in range(int(yrs)):
+        label = "actual" if i == 0 else f"+{i}"
         pct = st.slider(
-            f"Introducción año {i+1} (%)",
-            min_value=0, max_value=100, value=100, step=1,
+            f"Introducción año {label} (%)",
+            0, 100, 100, 1,
             key=f"uptake_{i}"
         )
         uptake_list.append(pct)
