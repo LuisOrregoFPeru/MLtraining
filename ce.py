@@ -219,21 +219,32 @@ elif analisis.startswith("2️⃣"):
                               for ac, pp in zip(acumulado, pim_proj)]
     })
 
-    # 7. Mostrar tabla centrada con formatos
-    df_disp = df.copy()
-    df_disp["Casos actual"]      = df_disp["Casos intervención actual"].map("{:,.0f}".format)
-    df_disp["Casos nuevos"]      = df_disp["Casos intervención nueva"].map("{:,.0f}".format)
-    df_disp["Costo incremental"] = df_disp["Costo incremental"].map("{:,.2f}".format)
-    df_disp["Acumulado"]         = df_disp["Acumulado"].map("{:,.2f}".format)
-    df_disp["PIM proyectado"]    = df_disp["PIM proyectado"].map("{:,.2f}".format)
-    df_disp["Impacto en PIM"]    = df_disp["Impacto en PIM"].map("{:.2%}".format)
+       # 7. Mostrar tabla centrada con formatos (manteniendo nombres largos)
+    df_disp = df.loc[:, [
+        "Año",
+        "Casos intervención actual",
+        "Casos intervención nueva",
+        "Costo incremental",
+        "Acumulado",
+        "PIM proyectado",
+        "Impacto en PIM"
+    ]].copy()
+
+    # Aplicar formato con separadores
+    df_disp["Casos intervención actual"] = df_disp["Casos intervención actual"].map("{:,.0f}".format)
+    df_disp["Casos intervención nueva"]  = df_disp["Casos intervención nueva"].map("{:,.0f}".format)
+    df_disp["Costo incremental"]         = df_disp["Costo incremental"].map("{:,.2f}".format)
+    df_disp["Acumulado"]                 = df_disp["Acumulado"].map("{:,.2f}".format)
+    df_disp["PIM proyectado"]            = df_disp["PIM proyectado"].map("{:,.2f}".format)
+    df_disp["Impacto en PIM"]            = df_disp["Impacto en PIM"].map("{:.2%}".format)
 
     st.dataframe(
         df_disp.style
-            .set_properties(**{"text-align": "center"})
-            .set_table_styles([{"selector": "th", "props": [("text-align", "center")]}]),
+               .set_properties(**{"text-align": "center"})
+               .set_table_styles([{"selector": "th", "props": [("text-align", "center")]}]),
         use_container_width=True
     )
+
 
     # 8. Métricas
     st.success(f"Acumulado en {yrs} años: UM {acumulado[-1]:,.2f}")
