@@ -179,14 +179,17 @@ elif analisis.startswith("2️⃣"):
     avg_growth = sum(growth_rates) / len(growth_rates) if growth_rates else 0.0
     st.write(f"**Tasa media anual de crecimiento PIM:** {avg_growth:.1%}")
 
-# Proyección de PIM año a año incorporando costo incremental y tasa de crecimiento
-   pim_proj = []
-for i, ci in enumerate(cost_inc):
-    if i == 0:
-        pim_i = last_pim + ci
-    else:
-        pim_i = pim_proj[i-1] * (1 + avg_growth) + ci
-    pim_proj.append(pim_i)
+    # Proyección de PIM año a año (iterativa)
+    last_pim = pim_hist[-1]
+    pim_proj = []
+    for i, ci in enumerate(cost_inc):
+        if i == 0:
+            # Año actual: presupuesto histórico + costo incremental año 0
+            pim_i = last_pim + ci
+        else:
+            # Años siguientes: presupuesto del año anterior crece y luego sumas el incremental
+            pim_i = pim_proj[i-1] * (1 + avg_growth) + ci
+        pim_proj.append(pim_i)
 
 
     # 4. Sliders anuales de introducción (%), empezando por año actual
