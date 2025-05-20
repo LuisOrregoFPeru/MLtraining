@@ -155,11 +155,11 @@ elif analisis.startswith("2️⃣"):
     # 3. Horizonte y PIM
     yrs = st.number_input("Horizonte (años)", 1, step=1)
 
-    # 3.1 PIM histórico últimos 5 años
+    # 3.1 PIM histórico (últimos 5 años)
     st.subheader("PIM histórico (últimos 5 años)")
     pim_hist = []
     for i in range(5):
-       offset = 4 - i
+        offset = 4 - i
         label = f"-{offset}" if offset > 0 else "actual"
         val = st.number_input(
             f"PIM año {label}",
