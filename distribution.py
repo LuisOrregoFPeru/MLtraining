@@ -265,5 +265,5 @@ except Exception as e:
 
 # Footer
 st.markdown("---")
-st.markdown("Aplicación creada por Orrego‑Ferreyros, versión extendida con piramidal y otras distribuciones.")
+st.markdown("Aplicación creada por Orrego‑Ferreyros, LA.")
 
