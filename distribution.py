@@ -276,5 +276,5 @@ st.markdown("---")
 st.markdown("Aplicación creada por Orrego‑Ferreyros, LA.")
 
 
-**************
+
 
