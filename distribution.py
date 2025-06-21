@@ -2,12 +2,11 @@
 # ---------------------------------------------------------------------------------------------
 # Versión extendida: incluye distribución piramidal (triangular) y otras distribuciones comunes
 # ---------------------------------------------------------------------------------------------
-# Cómo ejecutar
+# Ejecución local
 #   pip install streamlit pandas numpy scipy matplotlib
 #   streamlit run dist_app.py
 # ---------------------------------------------------------------------------------------------
 
-import io
 from typing import List, Dict
 
 import numpy as np
@@ -18,7 +17,10 @@ import matplotlib.pyplot as plt
 
 st.set_page_config(page_title="Detector de distribuciones", layout="centered")
 
-# Diccionarios auxiliares ------------------------------------------------------
+# ──────────────────────────────────────────────────────────────────────────────
+# Diccionarios auxiliares
+# ──────────────────────────────────────────────────────────────────────────────
+
 DIST_FULL_NAMES = {
     "norm": "Normal (Gaussiana)",
     "expon": "Exponencial",
@@ -42,39 +44,38 @@ REG_RECOMMENDED = {
     "weibull_min": "Regresión de supervivencia Weibull",
     "beta": "Regresión Beta (proporciones)",
     "poisson": "Regresión Poisson (GLM link log)",
-    "triang": "Ajuste triangular (método mínimos cuadrados)",
+    "triang": "Ajuste triangular (mín–moda–máx)",
     "uniform": "Modelos no paramétricos / rango",
     "nbinom": "Regresión Binomial Negativa (GLM link log)",
-    "geom": "Regresión Geométrica (caso especial de NB)",
+    "geom": "Regresión Geométrica (caso NB, r=1)",
     "pareto": "Modelos de colas Pareto / POT",
 }
 
-# -----------------------------------------------------------------------------
-# Helper functions
-# -----------------------------------------------------------------------------
+# ──────────────────────────────────────────────────────────────────────────────
+# Funciones auxiliares
+# ──────────────────────────────────────────────────────────────────────────────
 
 def parse_text_input(text: str) -> np.ndarray:
-    """Parsea números separados por espacios, comas, punto y coma o saltos de línea."""
+    """Convierte texto con números separados por delimitadores en un array NumPy."""
     if not text:
         return np.array([])
-    for sep in [",", "\n", "\t", ";"]:
+    for sep in (",", "\n", "\t", ";"):
         text = text.replace(sep, " ")
     tokens = [t for t in text.strip().split(" ") if t]
-    vals = []
+    values = []
     for tk in tokens:
         try:
-            vals.append(float(tk))
+            values.append(float(tk))
         except ValueError:
             continue
-    return np.array(vals, dtype=float)
+    return np.array(values, dtype=float)
 
 
 def get_candidate_distributions(data: np.ndarray) -> List[str]:
-    """Devuelve distribuciones candidatas según propiedades básicas."""
+    """Genera lista de distribuciones candidatas basadas en propiedades básicas."""
     cands = ["norm"]  # universal
 
-    # Continuas no negativas (incluye piramidal/triangular)
-    if np.all(data >= 0):
+    if np.all(data >= 0):  # continuas positivas
         cands += [
             "expon",
             "gamma",
@@ -84,14 +85,12 @@ def get_candidate_distributions(data: np.ndarray) -> List[str]:
             "uniform",
             "pareto",
         ]
-    # Proporciones 0‑1
     if np.all((0 <= data) & (data <= 1)):
         cands.append("beta")
-    # Conteos
-    if np.all(np.mod(data, 1) == 0):
+    if np.all(np.mod(data, 1) == 0):  # enteros
         cands += ["poisson", "nbinom", "geom"]
 
-    # Quitar duplicados conservando orden
+    # eliminar duplicados preservando orden
     seen, ordered = set(), []
     for d in cands:
         if d not in seen:
@@ -101,25 +100,19 @@ def get_candidate_distributions(data: np.ndarray) -> List[str]:
 
 
 def fit_distribution(dist_name: str, data: np.ndarray) -> Dict[str, object]:
-    """Ajusta una distribución de SciPy y devuelve parámetros + AIC/BIC."""
+    """Ajusta distribución SciPy y devuelve log‑verosimilitud, AIC y BIC."""
     n = len(data)
 
-    # Casos especiales con fórmulas cerradas
     if dist_name == "poisson":
         lam = data.mean()
         loglik = np.sum(stats.poisson.logpmf(data, lam))
         params, k = (lam,), 1
     elif dist_name == "nbinom":
-        # Ajuste rápido usando método de momentos (aprox) como inicial
         mean, var = data.mean(), data.var()
-        if var > mean:
-            p = mean / var
-            r = mean * p / (1 - p)
-            params0 = (r, p)
-        else:
-            params0 = (1, 0.5)
+        p_init = mean / var if var > mean else 0.5
+        r_init = mean * p_init / (1 - p_init) if p_init < 1 else 1
         dist = stats.nbinom
-        params = dist.fit(data, *params0)
+        params = dist.fit(data, r_init, p_init)
         loglik = np.sum(dist.logpmf(data, *params))
         k = len(params)
     else:
@@ -128,7 +121,7 @@ def fit_distribution(dist_name: str, data: np.ndarray) -> Dict[str, object]:
         try:
             loglik = np.sum(dist.logpdf(data, *params))
         except Exception:
-            loglik = -np.inf  # si falla la logpdf, para penalizar
+            loglik = -np.inf
         k = len(params)
 
     aic = 2 * k - 2 * loglik
@@ -142,9 +135,8 @@ def fit_distribution(dist_name: str, data: np.ndarray) -> Dict[str, object]:
     }
 
 
-def summarize_results(res: List[Dict[str, object]]) -> pd.DataFrame:
-    df = pd.DataFrame(res)
-    return df.sort_values("aic").reset_index(drop=True)
+def summarize_results(results: List[Dict[str, object]]) -> pd.DataFrame:
+    return pd.DataFrame(results).sort_values("aic").reset_index(drop=True)
 
 
 def show_aic_plot(df: pd.DataFrame):
@@ -156,26 +148,25 @@ def show_aic_plot(df: pd.DataFrame):
     plt.xticks(rotation=45, ha="right")
     st.pyplot(fig)
 
-# -----------------------------------------------------------------------------
+# ──────────────────────────────────────────────────────────────────────────────
 # Interfaz Streamlit
-# -----------------------------------------------------------------------------
+# ──────────────────────────────────────────────────────────────────────────────
 
 st.title("🔍 Detector automático de distribuciones – versión extendida")
 
 st.markdown(
     """
-Pegue sus datos en el cuadro de texto o cargue un archivo **CSV/Excel**. La aplicación probará una
-variedad más amplia de **distribuciones candidatas** (incluye la piramidal/triangular, uniforme, binomial
-negativa, etc.) y mostrará la mejor según **AIC/BIC** junto con la **regresión recomendada**.
+Pegue sus datos en el cuadro o cargue un archivo **CSV/Excel**. El sistema ajustará una amplia gama de
+**distribuciones candidatas** (incluye triangular, uniforme, NB, Pareto) y mostrará la mejor según **AIC/BIC**.
     """
 )
 
-# Sidebar opciones
+# Sidebar
 st.sidebar.header("⚙️ Opciones")
-alpha = st.sidebar.slider("Nivel de significancia para KS (opcional)", 0.01, 0.20, 0.05, 0.01)
+alpha = st.sidebar.slider("Nivel de significancia KS (opcional)", 0.01, 0.20, 0.05, 0.01)
 
 # Entrada de datos
-method = st.radio("Método de entrada de datos", ["Pegar texto", "Subir archivo"])
+method = st.radio("Método de entrada", ["Pegar texto", "Subir archivo"])
 
 if method == "Pegar texto":
     raw = st.text_area("Pegue los valores numéricos")
@@ -187,36 +178,36 @@ else:
             df_up = pd.read_csv(up) if up.name.endswith(".csv") else pd.read_excel(up)
             num_cols = df_up.select_dtypes(include=[np.number]).columns.tolist()
             if not num_cols:
-                st.error("No hay columnas numéricas.")
+                st.error("No se encontraron columnas numéricas en el archivo.")
                 data = np.array([])
             else:
                 sel = st.selectbox("Columna a analizar", num_cols)
                 data = df_up[sel].dropna().to_numpy()
         except Exception as e:
-            st.error(f"Error de lectura: {e}")
+            st.error(f"Error leyendo archivo: {e}")
             data = np.array([])
     else:
         data = np.array([])
 
-# Chequeos
+# Validaciones
 if data.size == 0:
     st.info("Ingrese datos para continuar.")
     st.stop()
 if data.size < 8:
-    st.warning("Se recomiendan al menos 8 observaciones para una estimación estable.")
+    st.warning("Para mayor robustez se recomiendan al menos 8 observaciones.")
 
 st.write(f"**Observaciones válidas:** {data.size}")
 
-# Ajuste de distribuciones
+# Ajuste distribuciones
 cands = get_candidate_distributions(data)
-st.write("Distribuciones candidatas detectadas:", ", ".join(cands))
+st.write("Distribuciones candidatas:", ", ".join(cands))
 
 results = []
 for d in cands:
     try:
         results.append(fit_distribution(d, data))
-    except Exception as e:
-        st.warning(f"{d}: error de ajuste → {e}")
+    except Exception as err:
+        st.warning(f"{d}: error de ajuste → {err}")
 
 if not results:
     st.error("No se pudo ajustar ninguna distribución.")
@@ -224,26 +215,55 @@ if not results:
 
 summary = summarize_results(results)
 
-# Salida principal
+# Mejora
 st.subheader("🏆 Mejor distribución (AIC mínimo)")
 best = summary.iloc[0]
+
 st.markdown(
-    f"**{DIST_FULL_NAMES.get(best['distribution'], best['distribution']).upper()}** "
-    f"con parámetros `{np.round(best['params'], 4).tolist()}`  \
-    AIC = {best['aic']:.2f}, BIC = {best['bic']:.2f}  \
-    **Regresión sugerida:** {REG_RECOMMENDED.get(best['distribution'], '–')}"
+    f"**{DIST_FULL_NAMES.get(best['distribution'], best['distribution']).upper()}**  \
+    Parámetros: `{np.round(best['params'], 4).tolist()}`  \
+    AIC = {best['aic']:.2f} | BIC = {best['bic']:.2f}  \
+    **Regresión sugerida:** {REG_RECOMMENDED.get(best['distribution'], 'No disponible')}"
 )
 
-# Tabla con todos los modelos
-st.subheader("Tabla de resultados")
+# Tabla completa
+st.subheader("Tabla completa de resultados")
 summary_disp = summary.copy()
 summary_disp["Distribución completa"] = summary_disp["distribution"].map(DIST_FULL_NAMES)
 summary_disp["Regresión recomendada"] = summary_disp["distribution"].map(REG_RECOMMENDED)
+
 st.dataframe(
-    summary_disp[["distribution", "Distribución completa", "
+    summary_disp[[
+        "distribution",
+        "Distribución completa",
+        "aic",
+        "bic",
+        "Regresión recomendada",
+        "params",
+    ]]
+)
 
+# Gráfico AIC
+st.subheader("Gráfico de comparación de AIC")
+show_aic_plot(summary)
 
-# --- Footer ---
+# KS para la mejor distribución
+st.subheader("📊 Prueba de bondad de ajuste KS")
+try:
+    if best["distribution"] == "poisson":
+        lam = best["params"][0]
+        D, p = stats.kstest(data, "poisson", args=(lam,))
+    else:
+        D, p = stats.kstest(data, best["distribution"], args=best["params"])
+    st.write(f"D = {D:.3f}, p = {p:.4f}")
+    if p < alpha:
+        st.warning("Se rechaza H0: la distribución podría no ajustar bien.")
+    else:
+        st.success("No se rechaza H0: ajuste compatible con los datos.")
+except Exception as e:
+    st.info(f"No se pudo ejecutar KS: {e}")
 
+# Footer
 st.markdown("---")
-st.markdown("Aplicación creada por Orrego-Ferreyros, LA.")
+st.markdown("Aplicación creada por Orrego‑Ferreyros, versión extendida con piramidal y otras distribuciones.")
+
