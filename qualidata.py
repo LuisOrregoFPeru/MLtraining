@@ -1,23 +1,13 @@
 # ────────────────────────────────────────────────────────────────────────────────
 # app.py – Suite experta de análisis cualitativo en español (Streamlit)
-# Autor: Jarvis (ChatGPT) — 2025
-# Licencia: MIT
-# Descripción:
-#   • Carga archivos .txt, .pdf, .docx, .csv
-#   • Preprocesa texto (tokenización, lematización, stopwords)
-#   • Análisis léxico: frecuencias, co-ocurrencias, frases clave (RAKE)
-#   • Modelado de temas (LDA) o clustering K-means
-#   • Análisis de sentimiento (léxico sencillo)
-#   • Visualizaciones: nubes de palabras, barras, red de co-ocurrencia
-#   • Descarga de gráficos y tablas
-#   • Interfaz en Streamlit con pestañas
+# Descarga automática el modelo spaCy 'es_core_news_sm' si no está presente
+# Autor: Jarvis – 2025 | Licencia: MIT
 # ────────────────────────────────────────────────────────────────────────────────
 
 from __future__ import annotations
 import io
-import re
 import itertools
-from collections import Counter, defaultdict
+from collections import Counter
 from pathlib import Path
 from typing import List, Tuple
 
@@ -29,19 +19,30 @@ import seaborn as sns
 from wordcloud import WordCloud
 import nltk
 from nltk.corpus import stopwords
-import spacy
-from rake_nltk import Rake
 
+# ---------------  BLOQUE DE DESCARGA EN CALIENTE DE spaCy -----------------------
+import spacy, subprocess, sys
+from spacy.util import is_package
+
+MODEL = "es_core_news_sm"
+if not is_package(MODEL):
+    st.warning(
+        "Descargando modelo spaCy… (solo ocurre la primera vez, puede tardar 10–15 s)"
+    )
+    subprocess.run([sys.executable, "-m", "spacy", "download", MODEL], check=True)
+
+nlp = spacy.load(MODEL)  # objeto de uso global
+NLP = nlp  # alias para compatibilidad con funciones más abajo
+# -------------------------------------------------------------------------------
+
+from rake_nltk import Rake
+import gensim
+from gensim import corpora
+import fitz  # PyMuPDF
+import docx2txt
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.decomposition import LatentDirichletAllocation
 from sklearn.cluster import KMeans
-from sklearn.preprocessing import normalize
-
-import gensim
-from gensim import corpora
-
-import fitz  # PyMuPDF
-import docx2txt
 
 # ────────────────────────────────────────────────────────────────────────────────
 # CONFIGURACIÓN INICIAL
@@ -55,15 +56,6 @@ nltk.download("stopwords", quiet=True)
 nltk.download("punkt", quiet=True)
 
 STOPWORDS_ES = set(stopwords.words("spanish"))
-# Carga modelo spaCy (es pequeño; usa md/lg si quieres más precisión)
-try:
-    NLP = spacy.load("es_core_news_sm")
-except OSError:
-    st.error(
-        "❗️No se encontró el modelo de spaCy 'es_core_news_sm'. "
-        "Ejecuta:  python -m spacy download es_core_news_sm  y reinicia la app."
-    )
-    st.stop()
 
 # ────────────────────────────────────────────────────────────────────────────────
 # UTILIDADES DE ENTRADA
@@ -90,13 +82,12 @@ def leer_docx(file) -> str:
     return text
 
 
-def leer_csv(file) -> Tuple[str, pd.DataFrame]:
+def leer_csv(file) -> str:
     df = pd.read_csv(file)
-    st.session_state["csv_df"] = df  # guardamos por si el usuario quiere descargar
-    # Busca columnas con texto (object) y sugiere la primera
+    st.session_state["csv_df"] = df
     texcols = [c for c in df.columns if df[c].dtype == "object"]
     if not texcols:
-        st.warning("No se detectaron columnas de texto.")
+        st.warning("No se detectaron columnas con texto.")
         return ""
     col_selec = st.selectbox("Selecciona la columna de texto a analizar:", texcols)
     return "\n".join(df[col_selec].dropna().astype(str).tolist())
@@ -121,7 +112,6 @@ def leer_archivo(subido) -> str:
 # ────────────────────────────────────────────────────────────────────────────────
 @st.cache_data(show_spinner=False)
 def limpiar_texto(texto: str) -> List[str]:
-    """Tokeniza, lematiza y filtra stopwords; devuelve lista de lemas."""
     doc = NLP(texto.lower())
     return [
         tok.lemma_
@@ -154,7 +144,7 @@ def calcular_coocurrencias(
 
 
 # ────────────────────────────────────────────────────────────────────────────────
-# ANALÍTICA DE FRASES CLAVE (RAKE)
+# FRASES CLAVE (RAKE)
 # ────────────────────────────────────────────────────────────────────────────────
 @st.cache_data(show_spinner=False)
 def extraer_rake(texto: str, top_n: int = 5) -> List[str]:
@@ -184,7 +174,7 @@ def lda_gensim(docs_tokens: List[List[str]], n_temas: int = 5):
 
 
 # ────────────────────────────────────────────────────────────────────────────────
-# ANÁLISIS DE SENTIMIENTO SIMPLE
+# SENTIMIENTO SIMPLE
 # ────────────────────────────────────────────────────────────────────────────────
 POS = {
     "excelente",
@@ -253,57 +243,35 @@ def main():
         st.info("Carga uno o más archivos para comenzar.")
         st.stop()
 
-    # Leer todos los textos
-    docs_raw = []
-    for f in archivos:
-        texto = leer_archivo(f)
-        if texto:
-            docs_raw.append(texto)
+    docs_raw = [leer_archivo(f) for f in archivos if leer_archivo(f)]
     if not docs_raw:
         st.error("No se pudo leer ningún documento válido.")
         st.stop()
 
-    # Botón para procesar
     if st.button("🚀 Ejecutar análisis"):
-        with st.spinner("Procesando textos y generando análisis..."):
+        with st.spinner("Procesando textos…"):
             docs_tokens = preprocesar_docs(docs_raw)
-
-            # Frecuencias y nube global
             freq = frecuencias_global(docs_tokens)
-
-            # Co-ocurrencias
             coocs = calcular_coocurrencias(docs_tokens)
-
-            # RAKE frases clave
             frases_rake = [extraer_rake(t) for t in docs_raw]
-
-            # LDA
             num_temas = st.sidebar.slider("Número de temas LDA", 2, 10, 5, 1)
             temas, asignaciones, _ = lda_gensim(docs_tokens, num_temas)
-
-            # Sentimientos
             sentis = [sentimiento(t) for t in docs_raw]
 
-        # Pestañas
         tabs = st.tabs(["Resumen", "Temas", "Léxico", "Sentimiento"])
 
-        # ── TAB 1
         with tabs[0]:
-            st.subheader("Vista previa de textos")
+            st.subheader("Vista previa")
             st.write(f"Documentos analizados: {len(docs_raw)}")
-            st.text_area("Ejemplo de texto original", docs_raw[0][:1000], height=200)
+            st.text_area("Texto original", docs_raw[0][:1000], height=200)
             st.text_area(
-                "Tokens limpios (ejemplo)",
-                " ".join(docs_tokens[0][:50]),
-                height=100,
+                "Tokens limpios (ejemplo)", " ".join(docs_tokens[0][:50]), height=100
             )
 
-        # ── TAB 2
         with tabs[1]:
             st.subheader("Temas detectados (LDA)")
             for i, palabras in enumerate(temas, 1):
                 st.markdown(f"**Tema {i}:** " + ", ".join(palabras))
-            # Tabla de asignaciones
             df_temas = pd.DataFrame(
                 {
                     "Documento": range(1, len(docs_raw) + 1),
@@ -313,44 +281,32 @@ def main():
             )
             st.dataframe(df_temas)
             st.download_button(
-                "Descargar asignaciones (CSV)",
+                "Descargar asignaciones CSV",
                 df_temas.to_csv(index=False).encode("utf-8"),
                 "asignaciones_temas.csv",
                 "text/csv",
             )
 
-        # ── TAB 3
         with tabs[2]:
-            col1, col2 = st.columns([2, 1])
-            with col1:
-                st.subheader("Nube de palabras global")
-                wc = nube_palabras(freq)
-                fig, ax = plt.subplots(figsize=(10, 5))
-                ax.imshow(wc, interpolation="bilinear")
-                ax.axis("off")
-                st.pyplot(fig)
-                st.download_button(
-                    "Descargar nube (PNG)",
-                    fig_to_download(fig),
-                    "nube_palabras.png",
-                    "image/png",
-                )
-
-            with col2:
-                st.subheader("Frecuencias (Top 20)")
-                top20 = freq.most_common(20)
-                palabras, cuentas = zip(*top20)
-                plt.figure(figsize=(4, 6))
-                sns.barplot(x=list(cuentas), y=list(palabras))
-                plt.xlabel("Frecuencia")
-                st.pyplot(plt.gcf())
+            st.subheader("Nube de palabras global")
+            wc = nube_palabras(freq)
+            fig, ax = plt.subplots(figsize=(10, 5))
+            ax.imshow(wc, interpolation="bilinear")
+            ax.axis("off")
+            st.pyplot(fig)
+            st.download_button(
+                "Descargar nube (PNG)",
+                fig_to_download(fig),
+                "nube_palabras.png",
+                "image/png",
+            )
 
             st.markdown("---")
             st.subheader("Co-ocurrencias principales")
             cooc_df = pd.DataFrame(coocs, columns=["Palabra_A", "Palabra_B", "Frecuencia"])
             st.dataframe(cooc_df)
             st.download_button(
-                "Descargar co-ocurrencias (CSV)",
+                "Descargar co-ocurrencias CSV",
                 cooc_df.to_csv(index=False).encode("utf-8"),
                 "coocurrencias.csv",
                 "text/csv",
@@ -359,32 +315,32 @@ def main():
             st.markdown("---")
             st.subheader("Frases clave (RAKE)")
             for idx, frases in enumerate(frases_rake, 1):
-                if frases:
-                    st.markdown(f"**Documento {idx}:** " + "; ".join(frases))
-                else:
-                    st.markdown(f"**Documento {idx}:** (sin frases extraídas)")
+                st.markdown(f"**Doc {idx}:** " + "; ".join(frases) if frases else f"Doc {idx}: (sin frases)")
 
-        # ── TAB 4
         with tabs[3]:
             st.subheader("Distribución de Sentimientos")
             senti_counts = Counter(sentis)
             plt.figure(figsize=(4, 3))
-            sns.barplot(x=list(senti_counts.keys()), y=list(senti_counts.values()), palette=["green", "gray", "red"])
-            plt.ylabel("N° documentos")
+            sns.barplot(
+                x=list(senti_counts.keys()),
+                y=list(senti_counts.values()),
+                palette=["green", "gray", "red"],
+            )
+            plt.ylabel("Nº documentos")
             st.pyplot(plt.gcf())
 
             st.markdown("---")
-            st.subheader("Nubes de palabras por sentimiento")
+            st.subheader("Nubes por sentimiento")
             for cat in ["Positivo", "Neutral", "Negativo"]:
-                subset_tokens = list(
+                subset = list(
                     itertools.chain.from_iterable(
-                        [tokens for tokens, s in zip(docs_tokens, sentis) if s == cat]
+                        [tkn for tkn, s in zip(docs_tokens, sentis) if s == cat]
                     )
                 )
-                if subset_tokens:
+                if subset:
                     st.markdown(f"**{cat}**")
                     fig, ax = plt.subplots(figsize=(6, 3))
-                    wc_cat = nube_palabras(Counter(subset_tokens), max_words=80)
+                    wc_cat = nube_palabras(Counter(subset), max_words=80)
                     ax.imshow(wc_cat, interpolation="bilinear")
                     ax.axis("off")
                     st.pyplot(fig)
