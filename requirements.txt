@@ -1,15 +1,13 @@
 streamlit
-python-docx
-matplotlib
 wordcloud
 pandas
 numpy
-scipy
 nltk
-spacy==3.8.7          #  ←  UNA sola línea de spaCy
+spacy==3.8.7
 gensim==4.3.3
 scikit-learn
 seaborn
-pymupdf==1.26.1
+matplotlib
 rake-nltk
 docx2txt
+pdfminer.six          # ← elimina pymupdf
