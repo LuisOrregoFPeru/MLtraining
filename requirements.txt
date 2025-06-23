@@ -7,3 +7,16 @@ pandas>=2.2
 numpy>=1.26
 scipy>=1.13
 matplotlib>=3.9
+
+streamlit 
+nltk 
+spacy 
+gensim 
+scikit-learn 
+wordcloud 
+matplotlib 
+seaborn 
+pandas 
+pymupdf 
+python-docx 
+rake-nltk
