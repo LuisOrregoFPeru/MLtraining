@@ -6,7 +6,7 @@ pandas
 numpy
 scipy
 nltk
-spacy==3.8.7          # ← única línea de spaCy
+spacy==3.8.7          #  ←  UNA sola línea de spaCy
 gensim==4.3.3
 scikit-learn
 seaborn
