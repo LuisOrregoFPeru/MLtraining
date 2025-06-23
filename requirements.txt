@@ -20,3 +20,5 @@ pandas
 pymupdf 
 python-docx 
 rake-nltk
+
+docx2txt
