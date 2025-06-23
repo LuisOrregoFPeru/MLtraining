@@ -1,7 +1,9 @@
-# ─ app.py  (versión robusta, sin dependencia obligatoria de PyMuPDF) ────────────
+# ────────────────────────────────────────────────────────────────────────────────
+# app.py – Suite cualitativa robusta (Streamlit, spaCy con descarga tolerante)
+# ────────────────────────────────────────────────────────────────────────────────
+
 from __future__ import annotations
-import io
-import itertools
+import io, itertools, logging, subprocess, sys, traceback
 from collections import Counter
 from pathlib import Path
 from typing import List, Tuple
@@ -14,23 +16,39 @@ from wordcloud import WordCloud
 import nltk
 from nltk.corpus import stopwords
 
-# ---------- spaCy: descarga en caliente del modelo --------------------------------
-import spacy, subprocess, sys
+# ---------- spaCy: descarga en caliente con tolerancia a fallos -----------------
+import spacy
 from spacy.util import is_package
 
 MODEL = "es_core_news_sm"
-if not is_package(MODEL):
-    st.warning("Descargando modelo spaCy… (solo la primera vez)")
-    subprocess.run([sys.executable, "-m", "spacy", "download", MODEL], check=True)
-NLP = spacy.load(MODEL)
-# ----------------------------------------------------------------------------------
+
+try:
+    nlp = spacy.load(MODEL)  # ¿ya está instalado?
+except OSError:
+    st.warning("Descargando modelo spaCy… (solo la primera vez, ~10 s)")
+    try:
+        subprocess.run(
+            [sys.executable, "-m", "spacy", "download", MODEL],
+            check=False,               # ← no detiene el proceso si falla
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+        )
+        nlp = spacy.load(MODEL)        # intento cargar de nuevo
+    except Exception as e:
+        logging.warning("No se pudo descargar spaCy: %s", e)
+        traceback.print_exc()
+        st.warning("⚠️ El modelo spaCy no se pudo descargar; se usará uno en blanco.")
+        nlp = spacy.blank("es")        # modelo vacío (sin lematización)
+
+NLP = nlp  # alias global
+# --------------------------------------------------------------------------------
 
 from rake_nltk import Rake
 import gensim
 from gensim import corpora
 from sklearn.decomposition import LatentDirichletAllocation
 
-# intentamos importar lectores opcionales
+# Lectores opcionales de PDF
 try:
     import fitz  # PyMuPDF
     HAVE_PYMUPDF = True
@@ -45,13 +63,14 @@ except ImportError:
 
 import docx2txt
 
+# ───────────────────────── CONFIG Streamlit ────────────────────────────
 st.set_page_config(page_title="Suite Cualitativa (Robusta)", layout="wide")
-st.title("📝 Suite de Análisis Cualitativo (versión robusta)")
+st.title("📝 Suite de Análisis Cualitativo (Robusta)")
 
 nltk.download("stopwords", quiet=True)
 STOPWORDS_ES = set(stopwords.words("spanish"))
 
-# ──────────────── Funciones de lectura seguras ──────────────────────────
+# ───────────────────── Funciones de lectura seguras ────────────────────
 def leer_txt(buf: bytes) -> str:
     return buf.decode("utf-8", errors="ignore")
 
@@ -69,17 +88,18 @@ def leer_pdf(file) -> str:
         return ""
 
 def leer_docx(file) -> str:
-    temp = Path("_temp.docx"); temp.write_bytes(file.read())
-    text = docx2txt.process(temp)
-    temp.unlink(missing_ok=True)
+    tmp = Path("_temp.docx")
+    tmp.write_bytes(file.read())
+    text = docx2txt.process(tmp)
+    tmp.unlink(missing_ok=True)
     return text
 
 def leer_csv(file) -> str:
     df = pd.read_csv(file)
-    text_cols = [c for c in df.columns if df[c].dtype == "object"]
-    if not text_cols:
+    cols = [c for c in df.columns if df[c].dtype == "object"]
+    if not cols:
         return ""
-    col = st.selectbox("Columna de texto", text_cols, key=file.name)
+    col = st.selectbox("Columna de texto", cols, key=file.name)
     return "\n".join(df[col].dropna().astype(str))
 
 def leer_archivo(subido) -> str:
@@ -91,7 +111,7 @@ def leer_archivo(subido) -> str:
     st.warning(f"{ext} no soportado")
     return ""
 
-# ──────────────── NLP utilidades ────────────────────────────────────────
+# ───────────────────── NLP utilidades ────────────────────────────────
 @st.cache_data(show_spinner=False)
 def limpiar(texto: str) -> List[str]:
     doc = NLP(texto.lower())
@@ -100,17 +120,16 @@ def limpiar(texto: str) -> List[str]:
 def preprocesar(corpus: List[str]) -> List[List[str]]:
     return [limpiar(t) for t in corpus]
 
-# ──────────────── Análisis básicos ───────────────────────────────────────
 def freq_global(tokens: List[List[str]]) -> Counter:
     return Counter(itertools.chain.from_iterable(tokens))
 
 def coocurrencias(docs_tokens, win=2, top=30):
     pares = Counter()
     for toks in docs_tokens:
-        for i, w in enumerate(toks):
+        for i in range(len(toks)):
             for j in range(1, win + 1):
                 if i + j < len(toks):
-                    pares[(w, toks[i + j])] += 1
+                    pares[(toks[i], toks[i + j])] += 1
     return pares.most_common(top)
 
 @st.cache_data(show_spinner=False)
@@ -128,7 +147,7 @@ def lda_temas(docs_tokens, k=5):
     asign = [max(lda.get_document_topics(b), key=lambda x: x[1])[0] for b in corp]
     return temas, asign
 
-POS = {"excelente","bueno","agradable","positivo","feliz","fantástico"}
+POS = {"excelente","bueno","positivo","feliz","fantástico"}
 NEG = {"malo","terrible","negativo","triste","pésimo"}
 
 def sentimiento(txt):
@@ -139,8 +158,9 @@ def sentimiento(txt):
 def nube(freq):
     return WordCloud(width=800,height=400,background_color="white",colormap="Dark2").generate_from_frequencies(freq)
 
-# ──────────────── Interfaz ───────────────────────────────────────────────
-uploads = st.file_uploader("Sube archivos (.txt .pdf .docx .csv)", type=["txt","pdf","docx","csv"], accept_multiple_files=True)
+# ───────────────────── Interfaz principal ─────────────────────────────
+uploads = st.file_uploader("Sube archivos (.txt, .pdf, .docx, .csv)", type=["txt","pdf","docx","csv"], accept_multiple_files=True)
+
 if not uploads:
     st.stop()
 
@@ -152,29 +172,38 @@ if not docs:
 
 if st.button("🚀 Ejecutar análisis"):
     with st.spinner("Procesando…"):
-        toks = preprocesar(docs)
+        toks  = preprocesar(docs)
         freq = freq_global(toks)
         cooc = coocurrencias(toks)
         frases = [rake_frases(t) for t in docs]
-        k = st.sidebar.slider("Temas LDA",2,10,5,1)
-        temas, asign = lda_temas(toks,k)
+        k = st.sidebar.slider("Temas LDA", 2, 10, 5, 1)
+        temas, asign = lda_temas(toks, k)
         sentis = [sentimiento(t) for t in docs]
 
-    t1,t2,t3,t4 = st.tabs(["Resumen","Temas","Léxico","Sentimiento"])
+    tab1, tab2, tab3, tab4 = st.tabs(["Resumen","Temas","Léxico","Sentimiento"])
 
-    with t1:
+    with tab1:
         st.subheader("Ejemplo")
         st.text_area("Texto original", docs[0][:800])
         st.text_area("Tokens limpios", " ".join(toks[0][:60]))
-    with t2:
-        st.subheader("Temas")
-        for i,p in enumerate(temas,1): st.markdown(f"**Tema {i}:** "+", ".join(p))
-    with t3:
-        st.subheader("Nube global")
-        fig,ax = plt.subplots(figsize=(10,4)); ax.imshow(nube(freq)); ax.axis("off"); st.pyplot(fig)
-        st.subheader("Co‐ocurrencias"); st.dataframe(pd.DataFrame(cooc,columns=["A","B","f"]))
-    with t4:
-        st.subheader("Sentimientos")
+
+    with tab2:
+        st.subheader("Temas detectados")
+        for i, p in enumerate(temas, 1):
+            st.markdown(f"**Tema {i}:** " + ", ".join(p))
+        df_asig = pd.DataFrame({"Doc": range(1,len(docs)+1), "Tema": [a+1 for a in asign], "Sent": sentis})
+        st.dataframe(df_asig)
+
+    with tab3:
+        st.subheader("Nube de palabras global")
+        fig, ax = plt.subplots(figsize=(10,4)); ax.imshow(nube(freq)); ax.axis("off"); st.pyplot(fig)
+        st.subheader("Co‐ocurrencias"); st.dataframe(pd.DataFrame(cooc, columns=["A","B","f"]))
+        st.subheader("Frases clave (RAKE)")
+        for i, fr in enumerate(frases, 1):
+            st.markdown(f"**Doc {i}:** " + "; ".join(fr) if fr else f"Doc {i}: (sin frases)")
+
+    with tab4:
+        st.subheader("Distribución de Sentimientos")
         st.bar_chart(pd.Series(sentis).value_counts())
 
-# ────────────────────────────────────────────────────────────────────────────────
+# ──────────────────────────────────────────────────────────────────────
