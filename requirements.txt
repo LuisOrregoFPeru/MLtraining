@@ -1,13 +1,13 @@
 streamlit
 wordcloud
 pandas
-numpy<1.25
+numpy
 nltk
-spacy==3.8.7
-gensim==4.3.3
+spacy
+gensim
 scikit-learn
 seaborn
 matplotlib
 rake-nltk
 docx2txt
-pdfminer.six          # ← elimina pymupdf
+pdfminer.six  
