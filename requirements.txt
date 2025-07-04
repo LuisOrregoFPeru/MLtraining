@@ -1,7 +1,7 @@
 streamlit
 wordcloud
 pandas
-numpy
+numpy<1.25
 nltk
 spacy==3.8.7
 gensim==4.3.3
