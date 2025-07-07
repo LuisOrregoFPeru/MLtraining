@@ -1,6 +1,7 @@
-streamlit
+
 wordcloud
 pandas
+streamlit
 numpy
 nltk
 spacy
